@@ -1,0 +1,7 @@
+inline com.alibaba.ffi.CXXValueScope$Buffer::*
+inline com.alibaba.ffi.CXXValueScope::*
+inline java.lang.ThreadLocal::get
+inline JavaRuntime::*
+inline com.alibaba.ffi.FFIPointer::*
+inline *::native*
+inline Library_*::*

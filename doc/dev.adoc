@@ -1,0 +1,86 @@
+= Dev Notes
+
+== Grape 类型:
+
+
+`VID_T`:: `int/uint`
+`OID_T`:: `int/uint/string`
+`VDATA_T/EDATA_T`:: `int/uint/float/double/string`
+
+
+== Java泛型和C++模板
+
+需要注意的地方：
+
+. Java泛型只有一份代码，所以参数类型都是reference，通过cast来保证类型，而C++模板需要实例化，等效于创建一个新的类。
+. Java的Primitive类型不能直接被用作泛型参数，需要boxing成对应的类，例如 `int` 需要被换成 `Integer`。
+.. Java支持的Primitive类型没有C++多，但是常见的C++ primitive类型都可以表示成对应的Java类型，例如Java没有unsigned integer，
+但是 `int32` 和 `uint32` 都可以在 `int` 上表示。
+
+== Unsigned Integer支持
+
+方案
+
+. **目前采用：`uint32` 可以表示成一个 Java `int`，都是32bit。相应的操作可以通过例如(`Integer.divideUnsigned` 或者 `Integer.remainderUnsigned`)来实现.**
+. Guava (https://guava.dev/releases/20.0/api/docs/com/google/common/primitives/package-summary.html))
+
+
+== Type Mapping
+
+=== Template Parameters
+
+Use annotation.
+目前还是手动开发
+
+=== Type Alias
+
+== FFI Annotation文档
+
+所有能够从Java传递个C++ Native的Java类型必须是以下两种类型的子类型：
+
+* `FFIPointer`
+* Java Primitive，例如：`int`
+* String
+
+
+所有的外部类型必须都是接口，以便支持多重继承，我们的工具自动为这些接口生成实现的代码。
+
+=== @FFIGen
+
+`@FFIGen` 主要是标记哪些接口需要生成实现类。
+
+[source,java]
+----
+include::../ffi/src/main/java/com/alibaba/ffi/FFIGen.java[]
+----
+
+
+=== @FFITypeAlias
+
+`@FFITypeAlias` 主要是标记Java外部类对应的C++类的名称。
+
+
+[source,java]
+----
+include::../ffi/src/main/java/com/alibaba/ffi/FFITypeAlias.java[]
+----
+
+例子：
+
+[source,java]
+----
+@FFITypeAlias("std::vector")
+public interface Vector<E> {
+  long size();
+  E at(int index);
+}
+----
+
+=== @CXXTemplate
+
+由于Java Annotation的一些限制，目前所有的CXX类型和Java类型都由String来表示
+
+[source,java]
+----
+include::../ffi/src/main/java/com/alibaba/ffi/CXXTemplate.java[]
+----

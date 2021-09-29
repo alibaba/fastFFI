@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Copyright 1999-2021 Alibaba Group Holding Ltd.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.alibaba.fastffi</groupId>
+        <artifactId>fastffi-parent</artifactId>
+        <version>0.1</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>test</artifactId>
+
+    <name>Test</name>
+
+    <properties>
+        <native.library.name>ffitest</native.library.name>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.alibaba.fastffi</groupId>
+            <artifactId>ffi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.fastffi</groupId>
+            <artifactId>annotation-processor</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.fastffi</groupId>
+            <artifactId>llvm</artifactId>
+        </dependency>
+         <dependency>
+            <groupId>com.alibaba.fastffi</groupId>
+            <artifactId>llvm4jni</artifactId>
+        </dependency>
+         <dependency>
+            <groupId>com.alibaba.fastffi</groupId>
+            <artifactId>llvm4jni-runtime</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.testing.compile</groupId>
+            <artifactId>compile-testing</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>make-and-link-bitcode</id>
+                        <phase>test-compile</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <ant antfile="${basedir}/../build.xml">
+                                    <target name="make" />
+                                </ant>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>@{argLine} -Dtest.tmpdir=${project.basedir}/target/testtmp -Djava.library.path=${project.basedir}/target/native</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>report-aggregate</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report-aggregate</goal>
+                        </goals>
+                        <configuration>
+                            <title>fastFFI Code Coverage Report</title>
+                            <footer>Code Coverage Report for fastFFI ${project.version}</footer>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

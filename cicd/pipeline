@@ -1,0 +1,23 @@
+pipeline {
+    agent {
+        dockerfile {
+             label 'fast-ffi-cicd'
+             filename 'Dockerfile'
+             dir 'cicd'
+             args '-v $HOME/.m2:/root/.m2'
+        }
+     }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'mvn package'
+                jacoco( 
+                    sourcePattern: '**/src/main/java/**',
+                    sourceExclusionPattern: 'test/src/man/java/**,**/*_cxx_0x*.java',
+                    exclusionPattern: '**/test/**,**/*_cxx_0x*',
+                    execPattern: '**/target/*.exec',
+                )
+            }
+        }
+    }
+}
