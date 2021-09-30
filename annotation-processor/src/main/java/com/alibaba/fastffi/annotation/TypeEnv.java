@@ -76,6 +76,7 @@ import java.util.Stack;
 import java.util.stream.Collectors;
 
 import static com.alibaba.fastffi.FFIUtils.addToMapList;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.typeNameToDeclaredType;
 
 /**
  * Put common type related method in this class
@@ -751,7 +752,7 @@ public class TypeEnv {
                 throw new IllegalStateException("CXXTemplate does not match method type variable length: " + template);
             }
             for (int i = 0; i < cxx.length; i++) {
-                TypeMapping typeMapping = new TypeMapping(cxx[i], AnnotationProcessorUtils.typeNameToDeclaredType(processingEnv, java[i], context));
+                TypeMapping typeMapping = new TypeMapping(cxx[i], typeNameToDeclaredType(processingEnv, java[i], context));
                 nameToMapping.put(typeParameterElements.get(i).getSimpleName().toString(), typeMapping);
             }
             return nameToMapping;
@@ -1388,7 +1389,7 @@ public class TypeEnv {
                 continue;
             }
             String typeVariableName = typeParameters.get(i).getSimpleName().toString();
-            TypeMirror javaType = AnnotationProcessorUtils.typeNameToDeclaredType(processingEnv, java[i], typeElement);
+            TypeMirror javaType = typeNameToDeclaredType(processingEnv, java[i], typeElement);
             variableNameToTypeMapping.put(typeVariableName, new TypeMapping(cxxType, javaType));
         }
         return variableNameToTypeMapping;
@@ -1490,6 +1491,12 @@ public class TypeEnv {
         return executableElement.getAnnotation(Nullable.class) != null;
     }
 
+    /**
+     * the JNI library name for the FFI type.
+     * @see System#loadLibrary(String)
+     * @param typeElement
+     * @return
+     */
     protected String getLibraryName(TypeElement typeElement) {
         FFIGen gen = typeElement.getAnnotation(FFIGen.class);
         if (gen != null && !gen.library().isEmpty()) {
@@ -1529,7 +1536,7 @@ public class TypeEnv {
         TypeMapping[] results = new TypeMapping[cxx.length];
         for (int i = 0; i < cxx.length; i++) {
             TypeMapping typeMapping = new TypeMapping(cxx[i],
-                    AnnotationProcessorUtils.typeNameToDeclaredType(processingEnv, java[i], context));
+                    typeNameToDeclaredType(processingEnv, java[i], context));
             results[i] = typeMapping;
         }
         return results;

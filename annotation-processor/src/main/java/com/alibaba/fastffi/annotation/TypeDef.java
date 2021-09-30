@@ -44,7 +44,7 @@ public class TypeDef {
     /**
      * See FFIGen.type()
      */
-    private final String declaredTypeElementName; // the original type element used.
+    private final String declaredTypeElementName; // the original user-provided type name.
 
     /**
      * If template is not null, this TypeDef must represent a parameterized type.
@@ -112,15 +112,31 @@ public class TypeDef {
                 '}';
     }
 
+    /**
+     * Get the type element of this TypeDef
+     * @param processingEnvironment
+     * @return
+     */
     public TypeElement getTypeElement(ProcessingEnvironment processingEnvironment) {
         return processingEnvironment.getElementUtils().getTypeElement(typeElementName);
     }
 
+    /**
+     * Get the type mirror of this TypeDef
+     * @param processingEnvironment
+     * @return
+     */
     public DeclaredType getTypeMirror(ProcessingEnvironment processingEnvironment) {
         return getTypeMirror(processingEnvironment, getTypeElement(processingEnvironment));
     }
 
-    public DeclaredType getTypeMirror(ProcessingEnvironment processingEnv, TypeElement typeElement) {
+    /**
+     * Get the type mirror of this TypeDef
+     * @param processingEnv
+     * @param typeElement
+     * @return
+     */
+    DeclaredType getTypeMirror(ProcessingEnvironment processingEnv, TypeElement typeElement) {
         if (!typeElement.getQualifiedName().toString().equals(typeElementName)) {
             throw new IllegalArgumentException("Expected " + typeElementName + ", got " + typeElement);
         }
@@ -154,72 +170,84 @@ public class TypeDef {
         return template.include();
     }
 
-    public String getCxxRawTypeName() {
+    public String getCXXBaseTypeName() {
+        assertNotFFILibrary("getCXXBaseTypeName");
         if (ffiTypeAlias != null) {
             if (ffiNamespace != null) {
                 return ffiNamespace.value() + "::" + ffiTypeAlias.value();
             }
             return ffiTypeAlias.value();
         }
-        throw new IllegalStateException("Cannot call getCXXRawTypeName on a TypeDef that is not a FFIPointer");
+        throw new IllegalStateException("Missing FFITypeAlias in " + this.typeElementName);
     }
 
-    public String getCxxRawSimpleTypeName() {
+    public String getCXXBaseSimpleTypeName() {
+        assertNotFFILibrary("getCXXBaseSimpleTypeName");
         if (ffiTypeAlias != null) {
             return ffiTypeAlias.value();
         }
-        throw new IllegalStateException("Cannot call getCXXRawTypeName on a TypeDef that is not a FFIPointer");
+        throw new IllegalStateException("Missing FFITypeAlias in " + this.typeElementName);
     }
 
     /**
      * Type Registry ID is the cxx full type name for FFIPointer
      * and the FFILibrary ID for FFILibrary.
+     * See ffi.properties
      * @return
      */
     public String getTypeRegistryId() {
-        if (ffiLibrary != null) {
+        if (isFFILibrary()) {
             String id = ffiLibrary.value();
             if (!id.isEmpty()) {
                 return id;
             }
+            // id should not be empty. use namespace as id if id is empty
             id = ffiLibrary.namespace();
             if (!id.isEmpty()) {
                 return id;
             }
             throw new IllegalStateException("An FFILibrary must have a valid type registry id");
         }
-        return getCxxFullTypeName();
+        return getCXXFullTypeName();
     }
 
-    public String getCxxFullTypeName() {
-        if (isFFILibrary()) {
-            throw new IllegalStateException("An FFILibrary does not have a type name");
-        }
+    public String getCXXFullTypeName() {
+        assertNotFFILibrary("getCXXFullTypeName");
         if (cxxFullTypeName == null) {
-            cxxFullTypeName = computeCxxFullName();
+            cxxFullTypeName = computeCXXFullName();
         }
         return cxxFullTypeName;
     }
 
-    public String getFFILibraryNamespace() {
-        if (ffiLibrary == null) {
-            throw new IllegalStateException("Cannot call getFFILibraryNamespace on a TypeDef that is not a FFILibrary");
+    void assertNotFFILibrary(String caller) {
+        if (isFFILibrary()) {
+            throw new IllegalStateException("Cannot call " + caller + " on a TypeDef " + this.typeElementName + " that is an FFILibrary");
         }
+    }
+
+    void assertFFILibrary(String caller) {
+        if (!isFFILibrary()) {
+            throw new IllegalStateException("Cannot call " + caller + " on a TypeDef " + this.typeElementName + " that is not an FFILibrary");
+        }
+    }
+
+    public String getFFILibraryNamespace() {
+        assertFFILibrary("getFFILibraryNamespace");
         return ffiLibrary.namespace();
     }
 
-    private String computeCxxFullName() {
+    private String computeCXXFullName() {
         if (template == null) {
-            return getCxxRawTypeName();
+            return getCXXBaseTypeName();
         }
         if (!template.cxxFull().isEmpty()) {
-            return getCxxRawTypeName() + "<" + template.cxxFull() + ">";
+            return getCXXBaseTypeName() + "<" + template.cxxFull() + ">";
         }
-        return getCxxRawTypeName() + "<" + String.join(",", template.cxx()) + ">";
+        return getCXXBaseTypeName() + "<" + String.join(",", template.cxx()) + ">";
     }
 
     public String getSuffixForGeneratedName() {
-        return String.format("_cxx_0x%x", getTypeRegistryId().hashCode()); // JavaUtils.encode(getCxxFullTypeName());
+        return String.format("_cxx_0x%x", getTypeRegistryId().hashCode());
     }
 
     public String getGeneratedJavaClassName() {

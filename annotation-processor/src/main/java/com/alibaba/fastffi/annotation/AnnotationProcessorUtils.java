@@ -15,6 +15,10 @@
  */
 package com.alibaba.fastffi.annotation;
 
+import com.alibaba.fastffi.CXXTemplate;
+import com.alibaba.fastffi.FFIFunGen;
+import com.alibaba.fastffi.FFIGen;
+
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -30,6 +34,7 @@ import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Stack;
 import java.util.stream.Collectors;
@@ -63,6 +68,11 @@ public class AnnotationProcessorUtils {
         throw new IllegalStateException("Should not reach here!" + element);
     }
 
+    /**
+     *
+     * @param header
+     * @return "foo/bar/test.h" -> FOO_BAR_TEST_H
+     */
     public static String toHeaderGuard(String header) {
         StringBuilder sb = new StringBuilder();
         sb.append("_");
@@ -79,6 +89,11 @@ public class AnnotationProcessorUtils {
         return sb.toString();
     }
 
+    /**
+     * Get the package element of the given type element.
+     * @param typeElement
+     * @return
+     */
     public static PackageElement getPackageElement(TypeElement typeElement) {
         if (typeElement == null) {
             return null;
@@ -106,12 +121,14 @@ public class AnnotationProcessorUtils {
         Elements elementUtils = processingEnv.getElementUtils();
         TypeElement typeElement = elementUtils.getTypeElement(typeName);
         if (typeElement == null && context != null) {
+            // 1. try to resolve the type in the package of the given context
             PackageElement packageElement = getPackageElement(context);
             if (packageElement != null) {
                 typeElement = elementUtils.getTypeElement(packageElement.getQualifiedName().toString() + "." + typeName);
             }
         }
         if (typeElement == null) {
+            // 2. try java.lang
             typeElement = elementUtils.getTypeElement("java.lang." + typeName);
         }
         if (typeElement == null) {
@@ -119,7 +136,7 @@ public class AnnotationProcessorUtils {
                     (context == null ? context : format(context)));
         }
         TypeMirror typeMirror = typeElement.asType();
-        if (typeMirror.getKind() != TypeKind.DECLARED) {
+        if (!isDeclaredType(typeMirror)) {
             throw new IllegalArgumentException("" + typeName + " is not a DeclaredType.");
         }
         return (DeclaredType) typeMirror;
@@ -255,7 +272,7 @@ public class AnnotationProcessorUtils {
                     + ">";
         }
         if (isArrayType(typeMirror)) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Unsupported type mirror: " + typeMirror);
         }
         if (isPrimitiveType(typeMirror)) {
             switch (typeMirror.getKind()) {
@@ -288,4 +305,63 @@ public class AnnotationProcessorUtils {
         throw new IllegalArgumentException("Unsupported type mirror: " + typeMirror);
     }
 
+    public static boolean isSameFFIGen(FFIGen gen1, FFIGen gen2) {
+        if (!gen1.type().equals(gen2.type())) {
+            return false;
+        }
+        if (!gen1.library().equals(gen2.library())) {
+            return false;
+        }
+        if (!isSameCXXTemplates(gen1.templates(), gen2.templates())) {
+            return false;
+        }
+        return isSameFFIFunGens(gen1.functionTemplates(), gen2.functionTemplates());
+    }
+
+    public static boolean isSameFFIFunGens(FFIFunGen[] templates1, FFIFunGen[] templates2) {
+        if (templates1.length != templates2.length) {
+            return false;
+        }
+        for (int i = 0; i < templates1.length; i++) {
+            if (!isSameFFIFunGen(templates1[i], templates2[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean isSameFFIFunGen(FFIFunGen gen1, FFIFunGen gen2) {
+        if (!gen1.name().equals(gen2.name())) {
+            return false;
+        }
+        if (!gen1.returnType().equals(gen2.returnType())) {
+            return false;
+        }
+        if (!Arrays.equals(gen1.parameterTypes(), gen2.parameterTypes())) {
+            return false;
+        }
+        return isSameCXXTemplates(gen1.templates(), gen2.templates());
+    }
+
+    public static boolean isSameCXXTemplates(CXXTemplate[] templates1, CXXTemplate[] templates2) {
+        if (templates1.length != templates2.length) {
+            return false;
+        }
+        for (int i = 0; i < templates1.length; i++) {
+            if (!isSameCXXTemplate(templates1[i], templates2[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean isSameCXXTemplate(CXXTemplate template1, CXXTemplate template2) {
+        if (!template1.cxxFull().equals(template2.cxxFull())) {
+            return false;
+        }
+        if (!Arrays.equals(template1.java(), template2.java())) {
+            return false;
+        }
+        return Arrays.equals(template1.cxx(), template2.cxx());
+    }
 }

@@ -89,7 +89,7 @@ public class AnnotationProcessor extends javax.annotation.processing.AbstractPro
         } catch (Throwable exc) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
                     "" + exc.getClass().getName() + ": " + exc.getMessage());
-        }// throw new RuntimeException(t);
+        }
 
         return false;
     }

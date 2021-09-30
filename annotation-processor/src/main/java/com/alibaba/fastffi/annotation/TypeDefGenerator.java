@@ -89,8 +89,6 @@ import java.util.stream.Collectors;
 
 import static com.alibaba.fastffi.FFIUtils.addToMapList;
 import static com.alibaba.fastffi.FFIUtils.encodeNativeMethodName;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.format;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.typeNameToDeclaredType;
 
 public class TypeDefGenerator extends TypeEnv {
 
@@ -834,7 +832,7 @@ public class TypeDefGenerator extends TypeEnv {
     }
 
     private String getCxxFullTypeName() {
-        return typeDef.getCxxFullTypeName();
+        return typeDef.getCXXFullTypeName();
     }
 
     private String getPackageName() {
@@ -1023,7 +1021,7 @@ public class TypeDefGenerator extends TypeEnv {
         if (!theTypeElement.getTypeParameters().isEmpty()) {
             throw reportError("TODO: We have no support of parameterized types now");
         }
-        hxxWriter.append("struct ").append(typeDef.getCxxRawSimpleTypeName());
+        hxxWriter.append("struct ").append(typeDef.getCXXBaseSimpleTypeName());
         generateFFIMirrorSuperDeclaration();
         hxxWriter.append(" {\n");
         generateFFIMirrorFieldsDeclaration(fields);
@@ -1039,14 +1037,14 @@ public class TypeDefGenerator extends TypeEnv {
 
     private void generateFFIMirrorDefaultCopyAssignment(List<FFIMirrorFieldDef> fields) {
         hxxWriter.append("\t")
-                .append(typeDef.getCxxRawTypeName())
+                .append(typeDef.getCXXBaseTypeName())
                 .append(" & operator = (");
 
         if (useCopyAndSwap) {
-            hxxWriter.append(typeDef.getCxxRawTypeName());
+            hxxWriter.append(typeDef.getCXXBaseTypeName());
         } else {
             hxxWriter.append("const ")
-                    .append(typeDef.getCxxRawTypeName())
+                    .append(typeDef.getCXXBaseTypeName())
                     .append(" &");
         }
         hxxWriter.append(" from) {\n")
@@ -1070,9 +1068,9 @@ public class TypeDefGenerator extends TypeEnv {
 
     private void generateFFIMirrorDefaultMoveAssignment(List<FFIMirrorFieldDef> fields) {
         hxxWriter.append("\t")
-                .append(typeDef.getCxxRawTypeName())
+                .append(typeDef.getCXXBaseTypeName())
                 .append(" & operator = (")
-                .append(typeDef.getCxxRawTypeName())
+                .append(typeDef.getCXXBaseTypeName())
                 .append(" && from) {\n")
                 .append("\t\tif (this == &from) return *this;\n");
         for (FFIMirrorFieldDef field : fields) {
@@ -1094,7 +1092,7 @@ public class TypeDefGenerator extends TypeEnv {
 
     private void generateFFIMirrorDefaultConstructor(List<FFIMirrorFieldDef> fields) {
         // TODO:
-        hxxWriter.append("\t").append(typeDef.getCxxRawSimpleTypeName()).append("() ");
+        hxxWriter.append("\t").append(typeDef.getCXXBaseSimpleTypeName()).append("() ");
         int size = fields.size();
         if (size == 0) {
             hxxWriter.append(" {}\n");
@@ -1111,9 +1109,9 @@ public class TypeDefGenerator extends TypeEnv {
 
     private void generateFFIMirrorDefaultCopyConstructor(List<FFIMirrorFieldDef> fields) {
         // TODO:
-        hxxWriter.append("\t").append(typeDef.getCxxRawSimpleTypeName())
+        hxxWriter.append("\t").append(typeDef.getCXXBaseSimpleTypeName())
                 .append("(const ")
-                .append(typeDef.getCxxRawSimpleTypeName())
+                .append(typeDef.getCXXBaseSimpleTypeName())
                 .append(" &from) ");
         int size = fields.size();
         if (size == 0) {
@@ -1144,9 +1142,9 @@ public class TypeDefGenerator extends TypeEnv {
 
     private void generateFFIMirrorDefaultMoveConstructor(List<FFIMirrorFieldDef> fields) {
         // TODO:
-        hxxWriter.append("\t").append(typeDef.getCxxRawSimpleTypeName())
+        hxxWriter.append("\t").append(typeDef.getCXXBaseSimpleTypeName())
                 .append("(")
-                .append(typeDef.getCxxRawSimpleTypeName())
+                .append(typeDef.getCXXBaseSimpleTypeName())
                 .append(" &&from) ");
         int size = fields.size();
         if (size == 0) {
@@ -1254,10 +1252,12 @@ public class TypeDefGenerator extends TypeEnv {
             FFISetter ffiSetter = executableElement.getAnnotation(FFISetter.class);
             if (ffiGetter != null) {
                 if (ffiSetter != null) {
-                    throw reportError(executableElement, executableType, "Malformed method: A method cannot be both FFISetter and FFIGetter");
+                    throw reportError(executableElement, executableType,
+                            "Malformed method: A method cannot be both FFISetter and FFIGetter");
                 }
                 if (!executableElement.getParameters().isEmpty()) {
-                    throw reportError(executableElement, executableType,"Malformed method: An FFIGetter cannot have any parameter.");
+                    throw reportError(executableElement, executableType,
+                            "Malformed method: An FFIGetter cannot have any parameter.");
                 }
                 String name = getDelegateNativeRawMethodName(executableElement);
                 VRP vrp = getReturnVRP(executableElement);
@@ -1266,11 +1266,13 @@ public class TypeDefGenerator extends TypeEnv {
                 addFFIMirrorField(fields, name, vrp, type, typeMapping);
             } else if (ffiSetter != null) {
                 if (executableType.getReturnType().getKind() != TypeKind.VOID) {
-                    throw reportError(executableElement, executableType,"Malformed method: An FFISetter can only have void return type");
+                    throw reportError(executableElement, executableType,
+                            "Malformed method: An FFISetter can only have void return type");
                 }
                 List<? extends TypeMirror> parameterTypes = executableType.getParameterTypes();
                 if (parameterTypes.size() != 1) {
-                    throw reportError(executableElement, executableType,"Malformed method: An FFISetter must have exactly one parameter.");
+                    throw reportError(executableElement, executableType,
+                            "Malformed method: An FFISetter must have exactly one parameter.");
                 }
                 String name = getDelegateNativeRawMethodName(executableElement);
                 VRP vrp = getParameterVRP(executableElement, 0);
@@ -1292,7 +1294,8 @@ public class TypeDefGenerator extends TypeEnv {
         } else {
             if (!typeUtils().isSameType(fieldDef.type, type)) {
                 if (fieldDef.hasGetter) {
-                    throw reportError(fieldDef.getterElement, fieldDef.getterType, "Malformed method: Mismatched type for FFIMirror field " + name + ", " + fieldDef.type + " and " + type);
+                    throw reportError(fieldDef.getterElement, fieldDef.getterType,
+                            "Malformed method: Mismatched type for FFIMirror field " + name + ", " + fieldDef.type + " and " + type);
                 } else if (fieldDef.hasSetter) {
                         throw reportError(fieldDef.setterElement, fieldDef.setterType,
                                 "Mismatched type for FFIMirror field " + name + ", " + fieldDef.type + " and " + type);
@@ -1303,14 +1306,16 @@ public class TypeDefGenerator extends TypeEnv {
         }
         if (getter) {
             if (fieldDef.hasGetter) {
-                throw reportError(fieldDef.getterElement, fieldDef.getterType, "Malformed method: An FFIProperty " + name + ", " + fieldDef.type + " already has a getter");
+                throw reportError(fieldDef.getterElement, fieldDef.getterType,
+                        "Malformed method: An FFIProperty " + name + ", " + fieldDef.type + " already has a getter");
             }
             fieldDef.hasGetter = true;
             fieldDef.getterElement = executableElement;
             fieldDef.getterType = executableType;
         } else {
             if (fieldDef.hasSetter) {
-                throw reportError(fieldDef.setterElement, fieldDef.setterType, "Malformed method: An FFIProperty " + name + ", " + fieldDef.type + " already has a setter");
+                throw reportError(fieldDef.setterElement, fieldDef.setterType,
+                        "Malformed method: An FFIProperty " + name + ", " + fieldDef.type + " already has a setter");
             }
             fieldDef.hasSetter = true;
             fieldDef.setterElement = executableElement;
@@ -1340,7 +1345,8 @@ public class TypeDefGenerator extends TypeEnv {
             TypeMirror returnType = executableType.getReturnType();
             if (returnType.getKind() == TypeKind.VOID) {
                 if (executableType.getParameterTypes().size() != 1) {
-                    throw reportError(executableElement, executableType, "Malformed FFIProperty method: Must have exact one parameter when return type is void.");
+                    throw reportError(executableElement, executableType,
+                            "Malformed FFIProperty method: Must have exact one parameter when return type is void.");
                 }
                 String name = getDelegateNativeRawMethodName(executableElement);
                 TypeMirror typeMirror = executableType.getParameterTypes().get(0);
@@ -1350,16 +1356,17 @@ public class TypeDefGenerator extends TypeEnv {
                 TypeMirror typeMirror = executableType.getReturnType();
                 addFFIPropertyField(executableElement, executableType, fields, name, typeMirror, false);
             } else {
-                throw reportError(executableElement, executableType, "Malformed method: An FFIProperty must have no parameter when return type is not void.");
+                throw reportError(executableElement, executableType,
+                        "Malformed method: An FFIProperty must have no parameter when return type is not void.");
             }
         }
         fields.values().forEach(f -> {
             if (!f.hasGetter) {
                 assert f.hasSetter;
-                throw reportError(f.setterElement, f.setterType, "A FFIProperty " + f.name + "/" + f.type
+                throw reportError(f.setterElement, f.setterType,"An FFIProperty " + f.name + "/" + f.type
                         + " must have a setter and a getter");
             } else if (!f.hasSetter) {
-                throw reportError(f.getterElement, f.getterType, "A FFIProperty " + f.name + "/" + f.type
+                throw reportError(f.getterElement, f.getterType, "An FFIProperty " + f.name + "/" + f.type
                         + " must have a setter and a getter");
             }
         });
@@ -1372,7 +1379,7 @@ public class TypeDefGenerator extends TypeEnv {
             TypeElement typeElement = (TypeElement) declaredType.asElement();
             FFITypeAlias ffiTypeAlias = typeElement.getAnnotation(FFITypeAlias.class);
             if (ffiTypeAlias != null) {
-                throw reportError("TODO: cannot generate super classes for FFIMirror");
+                throw reportError("TODO: cannot generate FFI super classes for FFIMirror");
             }
         }
     }
@@ -1380,16 +1387,12 @@ public class TypeDefGenerator extends TypeEnv {
     private void generateIncludedCXXHeads(boolean isFFIMirrorHead, Collection<String> additional) {
         StringBuilder writer = isFFIMirrorHead ? hxxWriter : cxxWriter;
 
-        // Set<String> sets = new HashSet<>(additional);
         List<String> results = new ArrayList<>(additional);
         results.add("<jni.h>");
         results.add("<new>");
 
         collectHeads(theTypeElement, results);
         collectHeads(typeDef.getAdditionalInclude(), results);
-
-        // List<String> results = new ArrayList<>(sets);
-        // Collections.sort(results);
 
         if (typeDef.isFFIMirror()) {
             String mirrorHeadName = "\"" + getGeneratedHXXFileName() + "\"";
@@ -1432,6 +1435,7 @@ public class TypeDefGenerator extends TypeEnv {
         TypeMirror factoryObjectType;
         if (isExpandedTemplate(theTypeElement)) {
             factoryObjectType = typeUtils().directSupertypes(theTypeMirror).get(1);
+            // the user-provided declared element
             factoryHolderElement = (TypeElement) typeUtils().asElement(theTypeElement.getInterfaces().get(0));
         } else {
             factoryObjectType = theTypeMirror;
@@ -1454,51 +1458,50 @@ public class TypeDefGenerator extends TypeEnv {
             }
         }
 
-        if (factoryTypeElement != null) {
-            DeclaredType factoryTypeMirror = getFactoryTypeMirror(factoryTypeElement);
-            Map<ExecutableElement, ExecutableTypeMapping> factoryTypeMapping = collectForeign(factoryTypeElement, topLevelNameToMapping);
-
-            String factoryClassSimpleName = getGeneratedFactorySimpleClassName();
-            TypeSpec.Builder factoryClassBuilder = TypeSpec.classBuilder(factoryClassSimpleName).addModifiers(Modifier.PUBLIC);
-            factoryClassBuilder.addSuperinterface(factoryTypeMirror);
-
-            {
-                // add default constructor;
-                factoryClassBuilder.addMethod(MethodSpec.constructorBuilder()
-                        .addModifiers(Modifier.PUBLIC)
-                        .build());
-            }
-            {
-                factoryClassBuilder.addField(TypeName.get(factoryTypeMirror), "INSTANCE", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL);
-                factoryClassBuilder.addStaticBlock(CodeBlock.builder()
-                        .addStatement("INSTANCE = new $L()", factoryClassSimpleName)
-                        .build());
-
-            }
-
-            for (Element e : factoryTypeElement.getEnclosedElements()) {
-                if (e instanceof ExecutableElement) {
-                    ExecutableElement ee = (ExecutableElement) e;
-
-                    if (ee.isDefault()) {
-                        // TODO: throw exception to forbid default method
-                        continue;
-                    }
-
-                    ExecutableType executableType = (ExecutableType) typeUtils().asMemberOf(factoryTypeMirror, ee);
-                    TypeMirror returnType = executableType.getReturnType();
-                    if (!typeUtils().isSameType(factoryObjectType, returnType)) {
-                        throw reportError(ee, "All methods in an FFIFactory must return a proper type, " +
-                                "expected " + factoryObjectType + ", got " + returnType);
-                    }
-
-                    String uniqueNativeMethodName = getNativeMethodName(ee.getSimpleName().toString()) + "Factory" + (i++);
-                    generateFFIFactoryMethod(factoryClassBuilder, factoryObjectType, uniqueNativeMethodName, ee, executableType, factoryTypeMapping.get(ee));
-                }
-            }
-
-            writeTypeSpec(factoryClassBuilder.build());
+        if (factoryTypeElement == null) {
+            return;
         }
+
+        DeclaredType factoryTypeMirror = getFactoryTypeMirror(factoryTypeElement);
+        Map<ExecutableElement, ExecutableTypeMapping> factoryTypeMapping = collectForeign(factoryTypeElement, topLevelNameToMapping);
+
+        String factoryClassSimpleName = getGeneratedFactorySimpleClassName();
+        TypeSpec.Builder factoryClassBuilder = TypeSpec.classBuilder(factoryClassSimpleName).addModifiers(Modifier.PUBLIC);
+        factoryClassBuilder.addSuperinterface(factoryTypeMirror);
+
+        {
+            // add default constructor;
+            factoryClassBuilder.addMethod(MethodSpec.constructorBuilder()
+                    .addModifiers(Modifier.PUBLIC).build());
+        }
+        {
+            factoryClassBuilder.addField(TypeName.get(factoryTypeMirror), "INSTANCE", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL);
+            factoryClassBuilder.addStaticBlock(CodeBlock.builder()
+                    .addStatement("INSTANCE = new $L()", factoryClassSimpleName).build());
+        }
+
+        for (Element e : factoryTypeElement.getEnclosedElements()) {
+            if (e instanceof ExecutableElement) {
+                ExecutableElement ee = (ExecutableElement) e;
+
+                if (ee.isDefault()) {
+                    // TODO: throw exception to forbid default methods
+                    continue;
+                }
+
+                ExecutableType executableType = (ExecutableType) typeUtils().asMemberOf(factoryTypeMirror, ee);
+                TypeMirror returnType = executableType.getReturnType();
+                if (!typeUtils().isSameType(factoryObjectType, returnType)) {
+                    throw reportError(ee, "All methods in an FFIFactory must return a proper type, " +
+                            "expected " + factoryObjectType + ", got " + returnType);
+                }
+
+                String uniqueNativeMethodName = getNativeMethodName(ee.getSimpleName().toString()) + "Factory" + (i++);
+                generateFFIFactoryMethod(factoryClassBuilder, factoryObjectType, uniqueNativeMethodName, ee, executableType, factoryTypeMapping.get(ee));
+            }
+        }
+
+        writeTypeSpec(factoryClassBuilder.build());
     }
 
     private void passingArgumentsToJavaNative(StringBuilder sb, ExecutableElement executableElement,
@@ -1772,8 +1775,6 @@ public class TypeDefGenerator extends TypeEnv {
         TypeElement typeElement = (TypeElement) executableElement.getEnclosingElement();
         return isSameType(typeElement.asType(), clazz);
     }
-
-
 
     private void generateFFIPointer() {
         {
@@ -2734,6 +2735,24 @@ public class TypeDefGenerator extends TypeEnv {
         }
     }
 
+    private void beginHandleException() {
+        if (Context.HANDLE_EXCEPTION) {
+            cxxWriter.append("\ttry {\n").append("\t");
+        }
+    }
+
+    private void endHandleException(String returnStmt) {
+        if (Context.HANDLE_EXCEPTION) {
+            cxxWriter.append("\t} catch (...) {\n");
+            cxxWriter.append("\t\tjthrowable exception = unknownException(env);\n");
+            cxxWriter.append("\t\tenv->Throw(exception);\n");
+            if (returnStmt != null) {
+                cxxWriter.append("\t\t").append(returnStmt).append("\n");
+            }
+            cxxWriter.append("\t}\n");
+        }
+    }
+
     private void generateCallNative(ExecutableElement executableElement, ExecutableType executableType,
             ExecutableTypeMapping executableTypeMapping, String callExpr) {
         TypeMirror returnType = executableType.getReturnType();
@@ -2764,63 +2783,31 @@ public class TypeDefGenerator extends TypeEnv {
             retValue = callExpr;
         }
         if (isReturnVoid) {
-            if (Context.HANDLE_EXCEPTION) {
-                cxxWriter.append("\ttry {\n").append("\t");
-            }
+            beginHandleException();
             cxxWriter.append("\t").append(retValue).append(";\n");
-            if (Context.HANDLE_EXCEPTION) {
-                cxxWriter.append("\t} catch (...) {\n");
-                cxxWriter.append("\t\tjthrowable exception = unknownException(env);\n");
-                cxxWriter.append("\t\tenv->Throw(exception);\n");
-                cxxWriter.append("\t}\n");
-            }
+            endHandleException(null);
         } else if (isReturnFFIPointer) {
-            if (Context.HANDLE_EXCEPTION) {
-                cxxWriter.append("\ttry {\n").append("\t");
-            }
+            beginHandleException();
             TypeMapping returnTypeMapping = executableTypeMapping.getReturnTypeMapping();
             cxxWriter.append("\treturn ").append(returnVRP.outNativeAsPointer(retValue, returnTypeMapping.cxx, needCXXvalueOpto)).append(";\n");
-            if (Context.HANDLE_EXCEPTION) {
-                cxxWriter.append("\t} catch (...) {\n");
-                cxxWriter.append("\t\tjthrowable exception = unknownException(env);\n");
-                cxxWriter.append("\t\tenv->Throw(exception);\n");
-                cxxWriter.append("\t\treturn 0;\n");
-                cxxWriter.append("\t}\n");
-            }
+            endHandleException("return 0;");
         } else if (isCXXEnum(returnType)) {
-            if (Context.HANDLE_EXCEPTION) {
-                cxxWriter.append("\ttry {\n").append("\t");
-            }
+            beginHandleException();
             String nativeType = nativeType(usedInNative(returnType));
             if (!nativeType.equals("jint")) {
                 throw reportError("A CXXEnum must be able to convert to a jint, but we got " + nativeType);
             }
             cxxWriter.append("\treturn (").append(nativeType).append(")(").append(retValue).append(");\n");
-            if (Context.HANDLE_EXCEPTION) {
-                cxxWriter.append("\t} catch (...) {\n");
-                cxxWriter.append("\t\tjthrowable exception = unknownException(env);\n");
-                cxxWriter.append("\t\tenv->Throw(exception);\n");
-                cxxWriter.append("\t\treturn static_cast<").append(nativeType).append(">(0);\n");
-                cxxWriter.append("\t}\n");
-            }
+            endHandleException("return static_cast<" + nativeType + ">(0);");
         } else if (isReturnJavaPrimitive) {
             String nativeType = nativeType(tryUnboxing(returnType));
-            if (Context.HANDLE_EXCEPTION) {
-                cxxWriter.append("\ttry {\n").append("\t");
-            }
+            beginHandleException();
             if (nativeType.equals("jboolean")) {
                 cxxWriter.append("\treturn (").append(retValue).append(") ? JNI_TRUE : JNI_FALSE;\n");
             } else {
                 cxxWriter.append("\treturn (").append(nativeType).append(")(").append(retValue).append(");\n");
             }
-
-            if (Context.HANDLE_EXCEPTION) {
-                cxxWriter.append("\t} catch (...) {\n");
-                cxxWriter.append("\t\tjthrowable exception = unknownException(env);\n");
-                cxxWriter.append("\t\tenv->Throw(exception);\n");
-                cxxWriter.append("\t\treturn static_cast<").append(nativeType).append(">(0);\n");
-                cxxWriter.append("\t}\n");
-            }
+            endHandleException("return static_cast<" + nativeType + ">(0);");
         } else {
             throw reportError(executableElement, executableType, "Unsupported return type: " + returnType);
         }
@@ -2845,6 +2832,9 @@ public class TypeDefGenerator extends TypeEnv {
         topLevelNameToMapping = null;
     }
 
+    /**
+     * Use BFS to iterate all super interfaces
+     */
     private void collectMethods() {
         LinkedList<DeclaredType> queue = new LinkedList<>();
         queue.addLast(theTypeMirror);
