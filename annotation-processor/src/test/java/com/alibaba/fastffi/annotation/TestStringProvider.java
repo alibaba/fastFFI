@@ -15,7 +15,7 @@
  */
 package com.alibaba.fastffi.annotation;
 
-import com.alibaba.fastffi.StringProvider;
+import com.alibaba.fastffi.FFIStringProvider;
 import org.junit.Test;
 
 import static com.alibaba.fastffi.FFIUnsafe.U;
@@ -34,7 +34,7 @@ public class TestStringProvider {
             U.putByte(addr + i, bytes[i]);
         }
 
-        StringProvider sp = new StringProvider() {
+        FFIStringProvider sp = new FFIStringProvider() {
 
             @Override
             public long size() {

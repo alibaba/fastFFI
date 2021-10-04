@@ -18,19 +18,17 @@ package com.alibaba.fastffi.llvm;
 import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.CXXPointer;
 import com.alibaba.fastffi.CXXReference;
-import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
+import com.alibaba.fastffi.FFIStringProvider;
+import com.alibaba.fastffi.FFIStringReceiver;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
-import com.alibaba.fastffi.StringProvider;
-import com.alibaba.fastffi.StringReceiver;
-import com.alibaba.fastffi.UnsafeHolder;
 
 @FFIGen
 @CXXHead(system = "string")
 @FFITypeAlias("std::string")
-public interface StdString extends LLVMPointer, CXXPointer, StringReceiver, StringProvider {
+public interface StdString extends LLVMPointer, CXXPointer, FFIStringReceiver, FFIStringProvider {
 
     static StdString create(String string) {
         return factory.create(string);

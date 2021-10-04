@@ -20,15 +20,15 @@ import com.alibaba.fastffi.CXXOperator;
 import com.alibaba.fastffi.FFIByteString;
 import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
+import com.alibaba.fastffi.FFIStringProvider;
+import com.alibaba.fastffi.FFIStringReceiver;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
-import com.alibaba.fastffi.StringProvider;
-import com.alibaba.fastffi.StringReceiver;
 
 @FFIGen
 @FFITypeAlias("std::string")
 @CXXHead(system = "string")
-public interface CXXStdString extends FFIByteString, StringReceiver, StringProvider {
+public interface CXXStdString extends FFIByteString, FFIStringReceiver, FFIStringProvider {
 
     Factory factory = FFITypeFactory.getFactory(CXXStdString.class);
 

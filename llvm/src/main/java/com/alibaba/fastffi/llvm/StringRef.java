@@ -20,14 +20,13 @@ import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
+import com.alibaba.fastffi.FFIStringProvider;
 import com.alibaba.fastffi.FFITypeAlias;
-import com.alibaba.fastffi.StringProvider;
-import com.alibaba.fastffi.UnsafeHolder;
 
 @FFIGen
 @CXXHead("llvm/ADT/StringRef.h")
 @FFITypeAlias("llvm::StringRef")
-public interface StringRef extends LLVMPointer, StringProvider {
+public interface StringRef extends LLVMPointer, FFIStringProvider {
 
     @FFIFactory
     interface Factory {
