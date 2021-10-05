@@ -18,6 +18,11 @@ package com.alibaba.fastffi;
 public interface FFIByteString extends FFIPointer, FFIBuiltinType {
     interface Factory {
         FFIByteString create();
+        default FFIByteString create(String from) {
+            FFIByteString string = create();
+            string.copyFrom(from);
+            return string;
+        }
     }
     byte byteAt(long index);
     long size();
