@@ -33,9 +33,12 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import javax.tools.JavaFileManager;
+import javax.tools.StandardLocation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Stack;
 import java.util.stream.Collectors;
 
@@ -251,6 +254,30 @@ public class AnnotationProcessorUtils {
             default:
                 return false;
         }
+    }
+
+    static boolean getBoolean(Map<String, String> options, String key, boolean defaultValue) {
+        String value = options.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        return Boolean.parseBoolean(value);
+    }
+
+    static String getString(Map<String, String> options, String key, String defaultValue) {
+        String value = options.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        return value;
+    }
+
+    static JavaFileManager.Location getLocation(Map<String, String> options, String key, JavaFileManager.Location defaultValue) {
+        String value = options.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        return StandardLocation.locationFor(value);
     }
 
     /**
