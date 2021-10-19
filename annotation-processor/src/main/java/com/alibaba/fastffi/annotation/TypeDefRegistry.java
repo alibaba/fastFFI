@@ -38,6 +38,8 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Function;
 
+import static com.alibaba.fastffi.annotation.AnnotationProcessor.CXX_OUTPUT_LOCATION_KEY;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getLocation;
 import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getTypeElement;
 import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isSameFFIGen;
 import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.toHeaderGuard;
@@ -71,7 +73,7 @@ public class TypeDefRegistry {
         }
     }
 
-    private AnnotationProcessor processor;
+    AnnotationProcessor processor;
 
     private Map<Key, TypeDef> FFIPointerDefMap = new HashMap<>();
     private Map<Key, TypeDef> FFILibraryDefMap = new HashMap<>();
@@ -350,8 +352,8 @@ public class TypeDefRegistry {
             hxx.append("#endif // ").append(guard).append("\n");
 
             try {
-                FileObject fileObject = processingEnv.getFiler().createResource(StandardLocation.SOURCE_OUTPUT, "",
-                        header);
+                FileObject fileObject = processingEnv.getFiler().createResource(processor.cxxOutputLocation,
+                        "", header);
                 try (Writer writer = fileObject.openWriter()) {
                     writer.write(hxx.toString());
                     writer.flush();

@@ -19,6 +19,7 @@ import com.alibaba.fastffi.CXXTemplate;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIGenBatch;
 
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
@@ -26,7 +27,13 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
+import javax.tools.JavaFileManager;
+import javax.tools.StandardLocation;
+import java.util.Map;
 import java.util.Set;
+
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getBoolean;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getLocation;
 
 @SupportedAnnotationTypes({
         "com.alibaba.fastffi.FFIGen",
@@ -35,7 +42,34 @@ import java.util.Set;
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
 public class AnnotationProcessor extends javax.annotation.processing.AbstractProcessor {
 
-    TypeDefRegistry registry = new TypeDefRegistry(this);
+    static final String HANDLE_EXCEPTION_KEY = "fastffi.handleException";
+    static final String MANUAL_BOXING_KEY = "fastffi.manualBoxing";
+    static final String STRICT_TYPE_CHECK_KEY = "fastffi.strictTypeCheck";
+    static final String NULL_RETURN_VALUE_CHECK_KEY = "fastffi.nullReturnValueCheck";
+    static final String CXX_OUTPUT_LOCATION_KEY = "fastffi.cxxOutputLocation";
+
+    TypeDefRegistry registry;
+
+    boolean handleException = false;
+    boolean manualBoxing = true;
+    JavaFileManager.Location cxxOutputLocation = StandardLocation.SOURCE_OUTPUT;
+    boolean strictTypeCheck = false;
+    boolean nullReturnValueCheck = true;
+
+    private void loadOptions(ProcessingEnvironment processingEnv) {
+        Map<String, String> options = processingEnv.getOptions();
+        handleException = getBoolean(options, HANDLE_EXCEPTION_KEY, false);
+        manualBoxing = getBoolean(options, MANUAL_BOXING_KEY, true);
+        strictTypeCheck = getBoolean(options, STRICT_TYPE_CHECK_KEY, false);
+        nullReturnValueCheck = getBoolean(options, NULL_RETURN_VALUE_CHECK_KEY, true);
+        cxxOutputLocation = getLocation(options, CXX_OUTPUT_LOCATION_KEY, StandardLocation.SOURCE_OUTPUT);
+    }
+
+    public synchronized void init(ProcessingEnvironment processingEnv) {
+        super.init(processingEnv);
+        loadOptions(processingEnv);
+        registry = new TypeDefRegistry(this);
+    }
 
     /**
      * Other annotation processor may need to process FFI* annotations.

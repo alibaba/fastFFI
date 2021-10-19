@@ -60,6 +60,42 @@ Basically, the build procedure the following binary:
 4. Use maven to build your applications. The generated code, including Java and C++ code, is available in `<project.dir>/target/generated-source/annotations`
 
 
+## Options
+
+A Java programming language compiler must support standard options in the format `-Akey[=value]`. fastFFI provides the following options:
+
+1. `fastffi.handleException`: whether generating code to handle C++ exceptions
+    * default value: `false`
+2. `fastffi.manualBoxing`: using `new Integer()` or `new Long()` to box a primitive integer.
+    * default value: `true`
+    * Auto boxing uses `Integer.valueOf` or `Long.valueOf`, which cannot be properly handled by the escape analysis of C2 compiler.
+3. `fastffi.strictTypeCheck`
+    * default value: `false`
+4. `fastffi.nullReturnValueCheck`
+    * default value: `true`
+    * insert additional null check for native pointers
+5. `fastffi.cxxOutputLocation`
+    * default value: `CLASS_OUTPUT`
+    * accept values: `CLASS_OUTPUT`, `SOURCE_OUTPUT`, `NATIVE_HEADER_OUTPUT`.
+
+Usage:
+
+```xml
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <version>3.8.0</version>
+    <configuration>
+        <compilerVersion>${javac.target}</compilerVersion>
+        <source>${javac.target}</source>
+        <target>${javac.target}</target>
+        <compilerArgs>
+            <arg>-Afastffi.strictTypeCheck=true</arg>
+        </compilerArgs>
+    </configuration>
+</plugin>
+```
+
 ## FAQ
 
 TBA

@@ -70,6 +70,7 @@ import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
+import javax.tools.JavaFileManager;
 import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.Writer;
@@ -89,6 +90,13 @@ import java.util.stream.Collectors;
 
 import static com.alibaba.fastffi.FFIUtils.addToMapList;
 import static com.alibaba.fastffi.FFIUtils.encodeNativeMethodName;
+import static com.alibaba.fastffi.annotation.AnnotationProcessor.CXX_OUTPUT_LOCATION_KEY;
+import static com.alibaba.fastffi.annotation.AnnotationProcessor.HANDLE_EXCEPTION_KEY;
+import static com.alibaba.fastffi.annotation.AnnotationProcessor.MANUAL_BOXING_KEY;
+import static com.alibaba.fastffi.annotation.AnnotationProcessor.NULL_RETURN_VALUE_CHECK_KEY;
+import static com.alibaba.fastffi.annotation.AnnotationProcessor.STRICT_TYPE_CHECK_KEY;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getBoolean;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getLocation;
 
 public class TypeDefGenerator extends TypeEnv {
 
@@ -746,8 +754,7 @@ public class TypeDefGenerator extends TypeEnv {
             if (writeCxxFile) {
                 endCxxBody();
                 String nativeFileName = getGeneratedCXXFileName();
-                FileObject fileObject = processingEnv.getFiler().createResource(Context.CC_TO_CLASS_PATH ?
-                                                                                StandardLocation.CLASS_OUTPUT : StandardLocation.SOURCE_OUTPUT, "", nativeFileName);
+                FileObject fileObject = processingEnv.getFiler().createResource(registry.processor.cxxOutputLocation, "", nativeFileName);
                 try (Writer writer = fileObject.openWriter()) {
                     writer.write(cxxWriter.toString());
                     writer.flush();
@@ -761,7 +768,7 @@ public class TypeDefGenerator extends TypeEnv {
     private void generateCommonStubs() {
         cxxWriter.append("// Common Stubs\n");
 
-        if (Context.HANDLE_EXCEPTION) {
+        if (registry.processor.handleException) {
             // unknown exception
             cxxWriter.append("static jthrowable unknownException(JNIEnv* env) {\n");
             cxxWriter.append("    jclass clazz = env->FindClass(\"java/lang/RuntimeException\");\n");
@@ -1518,7 +1525,7 @@ public class TypeDefGenerator extends TypeEnv {
                 sb.append(", ");
             }
             if (isFFIPointer(parameterType)) {
-                if (Context.STRICT_TYPE_CHECK) {
+                if (registry.processor.strictTypeCheck) {
                     TypeMapping parameterTypeMapping = executableTypeMapping.getParameterTypeMapping(i);
                     TypeDef parameterTypeDef = getTypeDefByForeignName(parameterTypeMapping);
                     if (parameterTypeDef == null) {
@@ -2143,7 +2150,7 @@ public class TypeDefGenerator extends TypeEnv {
         boolean isReturnJavaLangVoid = isJavaLangVoid(returnType); // the method body can only be return null
         boolean isReturnFFIPointer = isFFIPointer(returnType);
         boolean isReturnCXXEnum = isCXXEnum(returnType);
-        boolean doManualBoxing = Context.MANUAL_BOXING && requireManualBoxing(returnType);
+        boolean doManualBoxing = registry.processor.manualBoxing && requireManualBoxing(returnType);
         boolean isReturnJavaPrimitive = isJavaPrimitive(tryUnboxing(returnType));
         String nativeMethodName = createUniqueNativeMethodName(methodName, executableElement);
 
@@ -2244,7 +2251,7 @@ public class TypeDefGenerator extends TypeEnv {
                     VRP returnVRP = getReturnVRP(executableElement);
                     boolean nullCheck;
                     if (returnVRP == VRP.Pointer ) {
-                        if (Context.NULL_RETURN_VALUE_CHECK) {
+                        if (registry.processor.nullReturnValueCheck) {
                             // we must insert null check by default
                             if (isNonnull(executableElement)) {
                                 // but we need to skip Nonnull return value;
@@ -2736,13 +2743,13 @@ public class TypeDefGenerator extends TypeEnv {
     }
 
     private void beginHandleException() {
-        if (Context.HANDLE_EXCEPTION) {
+        if (registry.processor.handleException) {
             cxxWriter.append("\ttry {\n").append("\t");
         }
     }
 
     private void endHandleException(String returnStmt) {
-        if (Context.HANDLE_EXCEPTION) {
+        if (registry.processor.handleException) {
             cxxWriter.append("\t} catch (...) {\n");
             cxxWriter.append("\t\tjthrowable exception = unknownException(env);\n");
             cxxWriter.append("\t\tenv->Throw(exception);\n");
