@@ -122,7 +122,7 @@ sub callback {
       prepend_licence($name, $license_3, 2);
     } elsif ($name =~ /\.sh\z/) {
       # skip first line
-      prepend_licence($name, $license_1, 2);
+      prepend_licence($name, $license_2, 2);
     } elsif ($name =~ /\.cc\z/ || $name =~ /\.cpp\z/ || $name =~ /\.h\z/ || $name =~ /\.hpp\z/) {
       prepend_licence($name, $license_1, 1);
     } elsif ($name eq 'CMakeLists.txt') {
