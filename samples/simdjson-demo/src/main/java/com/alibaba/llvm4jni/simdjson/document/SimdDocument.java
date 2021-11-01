@@ -13,12 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.fastffi;
+package com.alibaba.llvm4jni.simdjson.document;
 
-/**
- * Use FFIStringProvider
- */
-@Deprecated
-public interface StringProvider extends FFIStringProvider {
+import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.CXXValue;
+import com.alibaba.fastffi.FFIExpr;
+import com.alibaba.fastffi.FFIGen;
+import com.alibaba.fastffi.FFIPointer;
+import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.llvm4jni.simdjson.stdcxx.StringView;
 
+@FFIGen
+@FFITypeAlias("simdjson::dom::document")
+@CXXHead("simdjson.h")
+public interface SimdDocument extends FFIPointer {
+    @CXXValue SimdElement root();
 }

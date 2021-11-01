@@ -16,6 +16,7 @@
 package com.alibaba.fastffi.annotation;
 
 import com.google.testing.compile.Compilation;
+import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import org.junit.Assert;
 import org.junit.Test;
@@ -29,43 +30,42 @@ import static com.google.testing.compile.Compiler.javac;
 
 public class TestNullCheck extends TestBase {
 
-    Compilation doCompile() {
+    Compilation doCompile(boolean nullCheck) {
         String name0 = "NullCheck.java";
 
         JavaFileObject[] sourceFiles = Arrays.asList(name0).stream().map(n ->
                 JavaFileObjects.forResource("samples/" + n)
         ).toArray(JavaFileObject[]::new);
-        Compilation compilation = javac().withProcessors(new AnnotationProcessor()).compile(sourceFiles);
+        Compiler compiler = javac().withProcessors(new AnnotationProcessor());
+        if (nullCheck) {
+            compiler = compiler.withOptions("-Afastffi.nullReturnValueCheck=true");
+        } else {
+            compiler = compiler.withOptions("-Afastffi.nullReturnValueCheck=false");
+        }
+        Compilation compilation = compiler.compile(sourceFiles);
         assertThat(compilation).succeeded();
         return compilation;
     }
 
     @Test
     public void test() throws IOException {
-        boolean oldValue = Context.NULL_RETURN_VALUE_CHECK;
-        try {
+        {
+            Compilation compilation = doCompile(false);
             {
-                Context.NULL_RETURN_VALUE_CHECK = false;
-                Compilation compilation = doCompile();
-                {
-                    String content = readJavaCode(compilation, "samples/NullCheck_cxx_0xb410aba1.java");
-                    Assert.assertTrue(content.contains("long ret$ = nativeDefaultMode(address); return (new samples.NullCheck_cxx_0xb410aba1(ret$));"));
-                    Assert.assertTrue(content.contains("long ret$ = nativeNonnull(address); return (new samples.NullCheck_cxx_0xb410aba1(ret$));"));
-                    Assert.assertTrue(content.contains("long ret$ = nativeNullable(address); return (ret$ == 0L ? null : new samples.NullCheck_cxx_0xb410aba1(ret$));"));
-                }
+                String content = readJavaCode(compilation, "samples/NullCheck_cxx_0xb410aba1.java");
+                Assert.assertTrue(content.contains("long ret$ = nativeDefaultMode(address); return (new samples.NullCheck_cxx_0xb410aba1(ret$));"));
+                Assert.assertTrue(content.contains("long ret$ = nativeNonnull(address); return (new samples.NullCheck_cxx_0xb410aba1(ret$));"));
+                Assert.assertTrue(content.contains("long ret$ = nativeNullable(address); return (ret$ == 0L ? null : new samples.NullCheck_cxx_0xb410aba1(ret$));"));
             }
+        }
+        {
+            Compilation compilation = doCompile(true);
             {
-                Context.NULL_RETURN_VALUE_CHECK = true;
-                Compilation compilation = doCompile();
-                {
-                    String content = readJavaCode(compilation, "samples/NullCheck_cxx_0xb410aba1.java");
-                    Assert.assertTrue(content.contains("long ret$ = nativeDefaultMode(address); return (ret$ == 0L ? null : new samples.NullCheck_cxx_0xb410aba1(ret$));"));
-                    Assert.assertTrue(content.contains("long ret$ = nativeNonnull(address); return (new samples.NullCheck_cxx_0xb410aba1(ret$));"));
-                    Assert.assertTrue(content.contains("long ret$ = nativeNullable(address); return (ret$ == 0L ? null : new samples.NullCheck_cxx_0xb410aba1(ret$));"));
-                }
+                String content = readJavaCode(compilation, "samples/NullCheck_cxx_0xb410aba1.java");
+                Assert.assertTrue(content.contains("long ret$ = nativeDefaultMode(address); return (ret$ == 0L ? null : new samples.NullCheck_cxx_0xb410aba1(ret$));"));
+                Assert.assertTrue(content.contains("long ret$ = nativeNonnull(address); return (new samples.NullCheck_cxx_0xb410aba1(ret$));"));
+                Assert.assertTrue(content.contains("long ret$ = nativeNullable(address); return (ret$ == 0L ? null : new samples.NullCheck_cxx_0xb410aba1(ret$));"));
             }
-        } finally {
-            Context.NULL_RETURN_VALUE_CHECK = oldValue;
         }
     }
 }

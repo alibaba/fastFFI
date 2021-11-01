@@ -37,16 +37,7 @@ public enum VRP {
     }
 
     public String outNativeAsPointer(String varName, String typeName) {
-        switch (this) {
-            case Value:
-                return String.format("reinterpret_cast<jlong>(new %s(%s))", typeName, varName);
-            case Reference:
-                return String.format("reinterpret_cast<jlong>(&(%s))", varName);
-            case Pointer:
-                return String.format("reinterpret_cast<jlong>(%s)", varName);
-            default:
-                throw new IllegalStateException();
-        }
+        return outNativeAsPointer(varName, typeName, false);
     }
 
     public String outNativeAsPointer(String varName, String typeName, boolean opto) {

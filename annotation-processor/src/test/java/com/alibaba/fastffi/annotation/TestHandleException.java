@@ -23,11 +23,6 @@ public class TestHandleException extends TestBase {
 
     @Test
     public void test() {
-        try {
-            Context.HANDLE_EXCEPTION = true;
-            assertThat(compile(this.getClass())).succeeded();
-        } finally {
-            Context.HANDLE_EXCEPTION = false;
-        }
+        assertThat(compile(this.getClass(), "-Afastffi.handleException=true")).succeeded();
     }
 }

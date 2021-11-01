@@ -1,0 +1,9 @@
+inline com.alibaba.fastffi.CXXValueScope$Buffer::*
+inline com.alibaba.fastffi.CXXValueScope$Segment::*
+inline com.alibaba.fastffi.CXXValueScope::*
+inline java.lang.ThreadLocal::get
+inline com.alibaba.fastffi.llvm4jni.runtime.JavaRuntime::*
+inline com.alibaba.fastffi.FFIPointer::*
+inline *::getAddress
+inline *::native*
+inline Library_*::*

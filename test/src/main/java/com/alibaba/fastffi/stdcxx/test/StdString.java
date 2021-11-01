@@ -25,15 +25,16 @@ import com.alibaba.fastffi.CXXValueRangeElement;
 import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIPointer;
+import com.alibaba.fastffi.FFIStringProvider;
+import com.alibaba.fastffi.FFIStringReceiver;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
-import com.alibaba.fastffi.StringProvider;
-import com.alibaba.fastffi.StringReceiver;
 
 @FFIGen(library = "ffitest")
 @CXXHead(system = "string")
 @FFITypeAlias("std::string")
-public interface StdString extends CXXPointer, CXXValueRange<StdString.Iterator>, StringReceiver, StringProvider {
+public interface StdString extends CXXPointer, CXXValueRange<StdString.Iterator>,
+        FFIStringReceiver, FFIStringProvider {
 
     Factory factory = FFITypeFactory.getFactory(StdString.class);
 

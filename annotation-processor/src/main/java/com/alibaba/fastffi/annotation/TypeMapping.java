@@ -17,6 +17,10 @@ package com.alibaba.fastffi.annotation;
 
 import javax.lang.model.type.TypeMirror;
 
+/**
+ * A mapping of native type and Java type
+ * @see TypeEnv#getTypeDefByForeignName
+ */
 public class TypeMapping {
     /**
      * The CXX type name, e.g., vector&lt;int&gt;

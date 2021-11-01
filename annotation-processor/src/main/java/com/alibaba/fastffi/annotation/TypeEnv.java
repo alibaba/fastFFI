@@ -76,11 +76,18 @@ import java.util.Stack;
 import java.util.stream.Collectors;
 
 import static com.alibaba.fastffi.FFIUtils.addToMapList;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getPackageElement;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isArrayType;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isDeclaredType;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isPrimitiveType;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isTypeVariable;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.typeNameToDeclaredType;
 
 /**
  * Put common type related method in this class
  */
 public class TypeEnv {
+
     protected TypeDefRegistry registry;
     protected ProcessingEnvironment processingEnv;
 
@@ -195,16 +202,16 @@ public class TypeEnv {
      * @return
      */
     protected String getTypeName(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             return ((TypeElement) typeUtils().asElement(typeMirror)).getQualifiedName().toString();
         }
-        if (AnnotationProcessorUtils.isTypeVariable(typeMirror)) {
+        if (isTypeVariable(typeMirror)) {
             return typeUtils().asElement(typeMirror).getSimpleName().toString();
         }
-        if (AnnotationProcessorUtils.isPrimitiveType(typeMirror)) {
+        if (isPrimitiveType(typeMirror)) {
             return typeMirror.toString();
         }
-        if (AnnotationProcessorUtils.isArrayType(typeMirror)) {
+        if (isArrayType(typeMirror)) {
             ArrayType arrayType = (ArrayType) typeMirror;
             return getTypeName(arrayType.getComponentType()) + "[]";
         }
@@ -267,7 +274,7 @@ public class TypeEnv {
     }
 
     protected boolean isJavaLangVoid(TypeMirror type) {
-        if (AnnotationProcessorUtils.isDeclaredType(type)) {
+        if (isDeclaredType(type)) {
             return isJavaLangVoid((DeclaredType) type);
         }
         return false;
@@ -278,7 +285,7 @@ public class TypeEnv {
     }
 
     protected boolean isCXXEnum(TypeMirror type) {
-        if (AnnotationProcessorUtils.isDeclaredType(type)) {
+        if (isDeclaredType(type)) {
             return isCXXEnum((DeclaredType) type);
         }
         return false;
@@ -297,7 +304,7 @@ public class TypeEnv {
     }
 
     protected boolean isFFIPointer(TypeMirror type) {
-        if (AnnotationProcessorUtils.isDeclaredType(type)) {
+        if (isDeclaredType(type)) {
             return isFFIPointer((DeclaredType) type);
         }
         return false;
@@ -318,28 +325,28 @@ public class TypeEnv {
     }
 
     protected boolean isFFIBuiltinType(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             return isSubType(typeMirror, FFIBuiltinType.class);
         }
         return false;
     }
 
     protected boolean isFFIByteString(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             return isSubType(typeMirror, FFIByteString.class);
         }
         return false;
     }
 
     protected boolean isFFIVector(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             return isSubType(typeMirror, FFIVector.class);
         }
         return false;
     }
 
     protected boolean hasTypeArguments(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             return !((DeclaredType) typeMirror).getTypeArguments().isEmpty();
         }
         return false;
@@ -389,10 +396,7 @@ public class TypeEnv {
     }
 
     protected boolean isFFIMirror(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
-            if (!isSubType(typeMirror, FFIPointer.class)) {
-                return false;
-            }
+        if (isFFIPointer(typeMirror)) {
             TypeElement typeElement = (TypeElement) ((DeclaredType) typeMirror).asElement();
             FFIMirror ffiMirror = typeElement.getAnnotation(FFIMirror.class);
             return ffiMirror != null;
@@ -429,7 +433,7 @@ public class TypeEnv {
      * @return
      */
     protected boolean isSubType(TypeMirror subType, TypeMirror superType) {
-        return AnnotationProcessorUtils.isDeclaredType(subType) && AnnotationProcessorUtils.isDeclaredType(superType) &&
+        return isDeclaredType(subType) && isDeclaredType(superType) &&
                 typeUtils().isSubtype(
                         typeUtils().erasure(subType),
                         typeUtils().erasure(superType)
@@ -445,7 +449,7 @@ public class TypeEnv {
     }
 
     protected boolean isJavaLangString(TypeMirror type) {
-        if (AnnotationProcessorUtils.isDeclaredType(type)) {
+        if (isDeclaredType(type)) {
             return isJavaLangString((DeclaredType) type);
         }
         return false;
@@ -603,7 +607,7 @@ public class TypeEnv {
     }
 
     protected boolean requireCreatingTypeMapping(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             return requireCreatingTypeMapping((DeclaredType) typeMirror);
         }
         return false;
@@ -646,7 +650,7 @@ public class TypeEnv {
     }
 
     protected boolean requireManualBoxing(TypeMirror typeMirror) {
-        if (!(AnnotationProcessorUtils.isDeclaredType(typeMirror))) {
+        if (!(isDeclaredType(typeMirror))) {
             return false;
         }
         DeclaredType declaredType = (DeclaredType) typeMirror;
@@ -666,7 +670,7 @@ public class TypeEnv {
     }
 
     protected boolean isJavaBoxedPrimitive(TypeMirror typeMirror) {
-        if (!(AnnotationProcessorUtils.isDeclaredType(typeMirror))) {
+        if (!(isDeclaredType(typeMirror))) {
             return false;
         }
         DeclaredType declaredType = (DeclaredType) typeMirror;
@@ -722,10 +726,10 @@ public class TypeEnv {
     }
 
     protected TypeMirror erasure(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             return erasure((DeclaredType) typeMirror);
         }
-        if (AnnotationProcessorUtils.isArrayType(typeMirror)) {
+        if (isArrayType(typeMirror)) {
             ArrayType arrayType = (ArrayType) typeMirror;
             return typeUtils().getArrayType(erasure(arrayType.getComponentType()));
         }
@@ -751,7 +755,7 @@ public class TypeEnv {
                 throw new IllegalStateException("CXXTemplate does not match method type variable length: " + template);
             }
             for (int i = 0; i < cxx.length; i++) {
-                TypeMapping typeMapping = new TypeMapping(cxx[i], AnnotationProcessorUtils.typeNameToDeclaredType(processingEnv, java[i], context));
+                TypeMapping typeMapping = new TypeMapping(cxx[i], typeNameToDeclaredType(processingEnv, java[i], context));
                 nameToMapping.put(typeParameterElements.get(i).getSimpleName().toString(), typeMapping);
             }
             return nameToMapping;
@@ -789,7 +793,7 @@ public class TypeEnv {
             return new TypeMapping(cxx, typeMirror);
         }
 
-        if (!AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (!isDeclaredType(typeMirror)) {
             // must be error type: return anything?
             return new TypeMapping(cxx, typeMirror);
         }
@@ -849,7 +853,7 @@ public class TypeEnv {
      */
     protected TypeMapping createTypeMapping(Map<String, TypeMapping> enclosingTypeMapping, TypeMirror typeMirror,
                                           Set<String> unboundTypeVariables) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             DeclaredType declaredType = (DeclaredType) typeMirror;
             if (!requireCreatingTypeMapping(declaredType)) {
                 return null;
@@ -866,7 +870,7 @@ public class TypeEnv {
                 return null;
             }
             return typeMapping;
-        } else if (AnnotationProcessorUtils.isTypeVariable(typeMirror)) {
+        } else if (isTypeVariable(typeMirror)) {
             TypeVariable typeVariable = (TypeVariable) typeMirror;
             String typeVariableName = typeVariable.asElement().getSimpleName().toString();
             TypeMapping typeMapping = enclosingTypeMapping.get(typeVariableName);
@@ -878,7 +882,7 @@ public class TypeEnv {
                 throw new IllegalStateException("No type mapping for " + typeVariableName);
             }
             return typeMapping;
-        } else if (AnnotationProcessorUtils.isPrimitiveType(typeMirror)) {
+        } else if (isPrimitiveType(typeMirror)) {
             return null;
         } else if (typeMirror.getKind() == TypeKind.VOID) {
             return null;
@@ -888,10 +892,10 @@ public class TypeEnv {
     }
 
     protected boolean isUnboundType(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isTypeVariable(typeMirror)) {
+        if (isTypeVariable(typeMirror)) {
             return true;
         }
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             DeclaredType declaredType = (DeclaredType) typeMirror;
             return declaredType.getTypeArguments().stream().anyMatch(AnnotationProcessorUtils::isTypeVariable);
         }
@@ -961,7 +965,7 @@ public class TypeEnv {
     }
 
     private TypeMirror substitute(DeclaredType theType, Map<String, TypeMapping> boundVariables, Set<String> freeVariables) {
-        if (!AnnotationProcessorUtils.isDeclaredType(theType)) {
+        if (!isDeclaredType(theType)) {
             // must be an error type
             return theType;
         }
@@ -969,7 +973,7 @@ public class TypeEnv {
         TypeMirror[] newArguments = new TypeMirror[typeArguments.size()];
         for (int i = 0; i < typeArguments.size(); i++) {
             TypeMirror typeArg = typeArguments.get(i);
-            if (AnnotationProcessorUtils.isTypeVariable(typeArg)) {
+            if (isTypeVariable(typeArg)) {
                 TypeVariable typeVariable = (TypeVariable) typeArg;
                 String typeVariableName = typeVariable.asElement().getSimpleName().toString();
                 TypeMapping typeMapping = boundVariables.get(typeVariableName);
@@ -985,7 +989,7 @@ public class TypeEnv {
                 } else {
                     newArguments[i] = typeMapping.java;
                 }
-            } else if (AnnotationProcessorUtils.isDeclaredType(typeArg)) {
+            } else if (isDeclaredType(typeArg)) {
                 DeclaredType declaredType = (DeclaredType) typeArg;
                 newArguments[i] = substitute(declaredType, boundVariables, freeVariables);
             } else {
@@ -1049,7 +1053,7 @@ public class TypeEnv {
         TypeMapping[] newTypeMapping = new TypeMapping[typeArguments.size()];
         for (int i = 0; i < typeArguments.size(); i++) {
             TypeMirror typeArg = typeArguments.get(i);
-            if (AnnotationProcessorUtils.isTypeVariable(typeArg)) {
+            if (isTypeVariable(typeArg)) {
                 TypeVariable typeVariable = (TypeVariable) typeArg;
                 String typeVariableName = typeVariable.asElement().getSimpleName().toString();
                 TypeMapping typeMapping = enclosingTypeMapping.get(typeVariableName);
@@ -1064,7 +1068,7 @@ public class TypeEnv {
                     }
                 }
                 newTypeMapping[i] = typeMapping;
-            } else if (AnnotationProcessorUtils.isDeclaredType(typeArg)) {
+            } else if (isDeclaredType(typeArg)) {
                 DeclaredType declaredType = (DeclaredType) typeArg;
                 newTypeMapping[i] = substitute(enclosingTypeMapping, (TypeElement) declaredType.asElement(), declaredType, unboundTypeVariables);
                 if (newTypeMapping[i] == null) {
@@ -1087,9 +1091,10 @@ public class TypeEnv {
     }
 
     protected String getFFITypeNameForFFIMirrorType(TypeMirror theType, boolean isJava) {
-        if (AnnotationProcessorUtils.isPrimitiveType(theType)) {
+        if (isPrimitiveType(theType)) {
+            String javaTypeName = AnnotationProcessorUtils.typeToTypeName(theType);
             if (isJava) {
-                return theType.toString();
+                return javaTypeName;
             }
             switch (theType.getKind()) {
                 case BYTE:
@@ -1100,10 +1105,10 @@ public class TypeEnv {
                 case LONG:
                 case FLOAT:
                 case DOUBLE:
-                    return "j" + theType;
+                    return "j" + javaTypeName;
             }
         }
-        if (AnnotationProcessorUtils.isDeclaredType(theType)) {
+        if (isDeclaredType(theType)) {
             return getFFITypeNameForBuiltinType((DeclaredType) theType, isJava);
         }
         throw new IllegalStateException("TODO: unsupported Java type " + theType);
@@ -1114,7 +1119,7 @@ public class TypeEnv {
     }
 
     protected String getFFITypeNameForBuiltinType(DeclaredType theType, boolean isJava) {
-        if (!AnnotationProcessorUtils.isDeclaredType(theType)) {
+        if (!isDeclaredType(theType)) {
             throw new IllegalArgumentException("Not a valid declare type: " + theType);
         }
         if (isFFIBuiltinType(theType)) {
@@ -1300,7 +1305,7 @@ public class TypeEnv {
             TypeMapping typeMapping = superTypeMapping.get(variableName);
             TypeMirror typeArg = interfaceTypeArguments.get(j);
             if (typeMapping != null) {
-                if (AnnotationProcessorUtils.isTypeVariable(typeArg)) {
+                if (isTypeVariable(typeArg)) {
                     throw new IllegalStateException("TypeArg should not have a configured type mapping");
                 }
                 // find a configured type mapping and use it directly
@@ -1308,7 +1313,7 @@ public class TypeEnv {
                 continue;
             }
             // Now we need to compute the actual type mapping of each type parameters.
-            if (AnnotationProcessorUtils.isTypeVariable(typeArg)) {
+            if (isTypeVariable(typeArg)) {
                 TypeVariable typeVariable = (TypeVariable) typeArg;
                 String typeVariableName = typeVariable.asElement().getSimpleName().toString();
                 typeMapping = enclosingTypeMapping.get(typeVariableName);
@@ -1319,7 +1324,7 @@ public class TypeEnv {
                     continue;
                 }
                 interfaceNameToMapping.put(variableName, typeMapping);
-            } else if (AnnotationProcessorUtils.isDeclaredType(typeArg)) {
+            } else if (isDeclaredType(typeArg)) {
                 DeclaredType declaredType = (DeclaredType) typeArg;
                 typeMapping = substitute(enclosingTypeMapping, (TypeElement) declaredType.asElement(), declaredType, Collections.emptySet());
                 if (typeMapping == null) {
@@ -1388,7 +1393,7 @@ public class TypeEnv {
                 continue;
             }
             String typeVariableName = typeParameters.get(i).getSimpleName().toString();
-            TypeMirror javaType = AnnotationProcessorUtils.typeNameToDeclaredType(processingEnv, java[i], typeElement);
+            TypeMirror javaType = typeNameToDeclaredType(processingEnv, java[i], typeElement);
             variableNameToTypeMapping.put(typeVariableName, new TypeMapping(cxxType, javaType));
         }
         return variableNameToTypeMapping;
@@ -1476,7 +1481,7 @@ public class TypeEnv {
     }
 
     protected TypeElement asElement(TypeMirror typeMirror) {
-        if (AnnotationProcessorUtils.isDeclaredType(typeMirror)) {
+        if (isDeclaredType(typeMirror)) {
             return (TypeElement) ((DeclaredType) typeMirror).asElement();
         }
         return null;
@@ -1490,12 +1495,18 @@ public class TypeEnv {
         return executableElement.getAnnotation(Nullable.class) != null;
     }
 
+    /**
+     * the JNI library name for the FFI type.
+     * @see System#loadLibrary(String)
+     * @param typeElement
+     * @return
+     */
     protected String getLibraryName(TypeElement typeElement) {
         FFIGen gen = typeElement.getAnnotation(FFIGen.class);
         if (gen != null && !gen.library().isEmpty()) {
             return gen.library();
         }
-        PackageElement packageElement = AnnotationProcessorUtils.getPackageElement(typeElement);
+        PackageElement packageElement = getPackageElement(typeElement);
         if (packageElement != null) {
             while (true) {
                 FFIApplication ffiApplication = packageElement.getAnnotation(FFIApplication.class);
@@ -1529,7 +1540,7 @@ public class TypeEnv {
         TypeMapping[] results = new TypeMapping[cxx.length];
         for (int i = 0; i < cxx.length; i++) {
             TypeMapping typeMapping = new TypeMapping(cxx[i],
-                    AnnotationProcessorUtils.typeNameToDeclaredType(processingEnv, java[i], context));
+                    typeNameToDeclaredType(processingEnv, java[i], context));
             results[i] = typeMapping;
         }
         return results;

@@ -13,12 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.fastffi;
+@FFIApplication( jniLibrary = "simdjson-ffi")
+package com.alibaba.llvm4jni.simdjson.document;
 
-/**
- * Use FFIStringReceiver
- */
-@Deprecated
-public interface StringReceiver extends FFIStringReceiver {
-
-}
+import com.alibaba.fastffi.FFIApplication;

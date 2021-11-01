@@ -13,16 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.fastffi;
 
-import sun.misc.Unsafe;
+package com.alibaba.fastffi.demo.ffi;
 
-/**
- * Use FFI Unsafe
- */
-@Deprecated
-public class UnsafeHolder {
+import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.FFIGen;
+import com.alibaba.fastffi.FFIPointer;
+import com.alibaba.fastffi.FFITypeAlias;
 
-    public static final Unsafe U = FFIUnsafe.U;
-
+@FFIGen
+@FFITypeAlias("MyGame::Sample::Vec3")
+@CXXHead("monster_generated.h")
+public interface FFIVec3 extends FFIPointer {
+    float x();
+    float y();
+    float z();
 }

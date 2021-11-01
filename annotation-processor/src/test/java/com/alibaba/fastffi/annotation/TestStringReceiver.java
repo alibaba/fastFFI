@@ -15,7 +15,7 @@
  */
 package com.alibaba.fastffi.annotation;
 
-import com.alibaba.fastffi.StringReceiver;
+import com.alibaba.fastffi.FFIStringReceiver;
 import org.junit.Test;
 
 import static com.alibaba.fastffi.FFIUnsafe.U;
@@ -25,7 +25,7 @@ public class TestStringReceiver {
 
     @Test
     public void test() {
-        StringReceiver sr = new StringReceiver() {
+        FFIStringReceiver sr = new FFIStringReceiver() {
             long addr;
 
             @Override

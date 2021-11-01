@@ -1,0 +1,100 @@
+/*
+ * Copyright 1999-2021 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.llvm4jni.simdjson.document;
+
+import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.CXXOperator;
+import com.alibaba.fastffi.CXXReference;
+import com.alibaba.fastffi.CXXValue;
+import com.alibaba.fastffi.FFIExpr;
+import com.alibaba.fastffi.FFIFactory;
+import com.alibaba.fastffi.FFIGen;
+import com.alibaba.fastffi.FFIPointer;
+import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.FFITypeFactory;
+import com.alibaba.llvm4jni.simdjson.stdcxx.StringView;
+
+import java.util.Iterator;
+
+@FFIGen
+@FFITypeAlias("simdjson::dom::object")
+@CXXHead("simdjson.h")
+public interface SimdObject extends FFIPointer, Iterable<SimdKeyValuePair> {
+
+    Factory factory = FFITypeFactory.getFactory(SimdObject.class);
+
+    static SimdObject create() {
+        return factory.create();
+    }
+
+    @FFIFactory
+    interface Factory {
+        SimdObject create();
+    }
+
+    @FFIGen
+    @FFITypeAlias("simdjson::dom::object::iterator")
+    @CXXHead("simdjson.h")
+    interface Iterator extends FFIPointer {
+        @CXXValue
+        @CXXOperator("*")
+        SimdKeyValuePair get();
+
+        @CXXOperator("++")
+        void next();
+
+        @CXXOperator("!=")
+        boolean notEqual(@CXXReference Iterator other);
+
+        @CXXValue StringView key();
+        /**
+         * Get the key of this key/value pair.
+         */
+        long key_c_str();
+        /**
+         * Get the value of this key/value pair.
+         */
+        @CXXValue SimdElement value();
+    }
+
+    default java.util.Iterator<SimdKeyValuePair> iterator() {
+        return new java.util.Iterator<SimdKeyValuePair>() {
+            Iterator current = begin();
+            Iterator end = end();
+
+            @Override
+            public boolean hasNext() {
+                return current.notEqual(end);
+            }
+
+            @Override
+            public SimdKeyValuePair next() {
+                SimdKeyValuePair v = current.get();
+                current.next();
+                return v;
+            }
+        };
+    }
+
+    @FFIExpr("(*{0})[{1}]")
+    @CXXValue SimdResult<SimdElement> get(@CXXReference StringView key);
+
+    @FFIExpr("(*{0})[{1}]")
+    @CXXValue SimdResult<SimdElement> get(@FFITypeAlias("const char*") long key);
+
+    @CXXValue Iterator begin();
+    @CXXValue Iterator end();
+}
