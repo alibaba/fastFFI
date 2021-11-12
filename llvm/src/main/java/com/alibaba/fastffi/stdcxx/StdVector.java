@@ -13,43 +13,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.fastffi.llvm;
+package com.alibaba.fastffi.stdcxx;
 
 import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.CXXOperator;
 import com.alibaba.fastffi.CXXPointer;
 import com.alibaba.fastffi.CXXReference;
+import com.alibaba.fastffi.CXXTemplate;
+import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
-import com.alibaba.fastffi.FFIStringProvider;
-import com.alibaba.fastffi.FFIStringReceiver;
 import com.alibaba.fastffi.FFITypeAlias;
-import com.alibaba.fastffi.FFITypeFactory;
 
 @FFIGen
-@CXXHead(system = "string")
-@FFITypeAlias("std::string")
-public interface StdString extends LLVMPointer, CXXPointer, FFIStringReceiver, FFIStringProvider {
-
-    static StdString create(String string) {
-        return factory.create(string);
-    }
-
-    Factory factory = FFITypeFactory.getFactory(StdString.class);
+@CXXHead(system = {"vector", "string", "memory", "cstdint"})
+@CXXHead("clang/Frontend/ASTUnit.h")
+@FFITypeAlias("std::vector")
+@CXXTemplate(cxx="std::string", java="StdString")
+@CXXTemplate(cxx="int64_t", java="Long")
+//@CXXTemplate(cxx="std::unique_ptr<clang::ASTUnit>", java="UniquePtr<com.alibaba.fastffi.clang.ASTUnit>")
+public interface StdVector<E> extends CXXPointer {
 
     @FFIFactory
-    interface Factory {
-        StdString create();
-        default StdString create(String string) {
-            StdString std = create();
-            std.fromJavaString(string);
-            return std;
-        }
-        StdString create(@CXXReference StdString string);
+    interface Factory<E> {
+        StdVector<E> create();
     }
+
+    @FFIFactory
+    Factory<E> getFactory();
 
     long size();
 
+    @CXXOperator("[]")
+    @CXXReference E get(int index);
+
+    @CXXReference E at(int index);
+
+    void push_back(@CXXValue E e);
+
+    void clear();
+
     long data();
+
+    long capacity();
+
+    void reserve(long size);
 
     void resize(long size);
 }

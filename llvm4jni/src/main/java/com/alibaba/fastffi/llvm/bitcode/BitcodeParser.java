@@ -27,9 +27,9 @@ import com.alibaba.fastffi.llvm.Module;
 import com.alibaba.fastffi.llvm.ObjectCasting;
 import com.alibaba.fastffi.llvm.ObjectFile;
 import com.alibaba.fastffi.llvm.OwningBinary;
-import com.alibaba.fastffi.llvm.StdString;
+import com.alibaba.fastffi.stdcxx.StdString;
 import com.alibaba.fastffi.llvm.StringRef;
-import com.alibaba.fastffi.llvm.UniquePtr;
+import com.alibaba.fastffi.stdcxx.UniquePtr;
 
 public class BitcodeParser {
 

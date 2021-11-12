@@ -30,67 +30,6 @@ public interface Type extends LLVMPointer {
 
     TypeID getTypeID();
 
-    /// Return true if this is 'void'.
-    boolean isVoidTy();
-
-    /// Return true if this is 'half', a 16-bit IEEE fp type.
-    boolean isHalfTy();
-
-    /// Return true if this is 'bfloat', a 16-bit bfloat type.
-    boolean isBFloatTy();
-
-    /// Return true if this is 'float', a 32-bit IEEE fp type.
-    boolean isFloatTy();
-
-    /// Return true if this is 'double', a 64-bit IEEE fp type.
-    boolean isDoubleTy();
-
-    /// Return true if this is x86 long double.
-    boolean isX86_FP80Ty();
-
-    /// Return true if this is 'fp128'.
-    boolean isFP128Ty();
-
-    /// Return true if this is powerpc long double.
-    boolean isPPC_FP128Ty();
-
-    /// Return true if this is one of the six floating-point types
-    boolean isFloatingPointTy();
-
-    /// Return true if this is X86 MMX.
-    boolean isX86_MMXTy();
-
-    /// Return true if this is a FP type or a vector of FP.
-    boolean isFPOrFPVectorTy();
-
-    /// Return true if this is 'label'.
-    boolean isLabelTy();
-
-    /// Return true if this is 'metadata'.
-    boolean isMetadataTy();
-
-    /// Return true if this is 'token'.
-    boolean isTokenTy();
-
-    /// True if this is an instance of IntegerType.
-    boolean isIntegerTy();
-
-    /// Return true if this is an IntegerType of the given width.
-    boolean isIntegerTy(int Bitwidth);
-
-    /// Return true if this is an integer type or a vector of integer types.
-    boolean isIntOrIntVectorTy();
-
-    /// Return true if this is an integer type or a vector of integer types of
-    /// the given width.
-    boolean isIntOrIntVectorTy(int BitWidth);
-
-    /// Return true if this is an integer type or a pointer type.
-    boolean isIntOrPtrTy();
-
-    /// True if this is an instance of FunctionType.
-    boolean isFunctionTy();
-
     /// True if this is an instance of StructType.
     boolean isStructTy();
 

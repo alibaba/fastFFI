@@ -29,7 +29,7 @@ import com.alibaba.fastffi.FFITypeAlias;
 @FFITypeAlias("llvm::ErrorOr")
 @CXXTemplate(
         cxx = "std::unique_ptr<llvm::MemoryBuffer>",
-        java = "UniquePtr<MemoryBuffer>"
+        java = "com.alibaba.fastffi.stdcxx.UniquePtr<MemoryBuffer>"
 )
 public interface ErrorOr<T> extends LLVMPointer {
     @CXXReference T get();

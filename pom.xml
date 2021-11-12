@@ -27,6 +27,7 @@
         <module>ffi</module>
         <module>annotation-processor</module>
         <module>llvm</module>
+        <module>binding-generator</module>
         <module>llvm4jni</module>
         <module>llvm4jni-runtime</module>
         <module>test</module>

@@ -26,6 +26,7 @@ import com.alibaba.fastffi.FFITypeAlias;
 @CXXHead("llvm/Support/Error.h")
 @CXXHead("llvm/Object/Binary.h")
 @CXXHead("llvm/IR/Module.h")
+@CXXHead("clang/Tooling/CommonOptionsParser.h")
 @FFITypeAlias("llvm::Expected")
 @CXXTemplate(
         cxx = "llvm::object::OwningBinary<llvm::object::Binary>",
@@ -37,11 +38,15 @@ import com.alibaba.fastffi.FFITypeAlias;
 )
 @CXXTemplate(
         cxx = "std::unique_ptr<llvm::Module>",
-        java = "UniquePtr<Module>"
+        java = "com.alibaba.fastffi.stdcxx.UniquePtr<Module>"
 )
 @CXXTemplate(
         cxx = "std::unique_ptr<llvm::MemoryBuffer>",
-        java = "UniquePtr<MemoryBuffer>"
+        java = "com.alibaba.fastffi.stdcxx.UniquePtr<MemoryBuffer>"
+)
+@CXXTemplate(
+        cxx = "clang::tooling::CommonOptionsParser",
+        java = "com.alibaba.fastffi.clang.tooling.CommonOptionsParser"
 )
 public interface Expected<T> extends LLVMPointer {
     @CXXReference

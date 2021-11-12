@@ -30,7 +30,7 @@
     <name>LLVM</name>
 
     <properties>
-        <native.library.name>ffitest</native.library.name>
+        <native.library.name>llvm4jni</native.library.name>
         <cmake.flags>-DLLVM_DIR=${env.LLVM11_HOME}/lib/cmake/llvm</cmake.flags>
     </properties>
 

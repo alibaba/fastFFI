@@ -16,8 +16,6 @@ project(LLVM4JNI)
 
 set(CMAKE_C_STANDARD 14)
 
-SET(CMAKE_C_COMPILER "clang")
-SET(CMAKE_CXX_COMPILER "clang++")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
 SET(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -fprofile-arcs -ftest-coverage")
 SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -g")
@@ -33,7 +31,6 @@ find_package(JNI REQUIRED)
 include_directories(SYSTEM ${JAVA_INCLUDE_PATH})
 include_directories(SYSTEM ${JAVA_INCLUDE_PATH2})
 
-
 find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
@@ -44,9 +41,83 @@ add_definitions(${LLVM_DEFINITIONS})
 add_library(${LIBNAME} SHARED ${SOURCES})
 
 
-llvm_map_components_to_libnames(llvm_libs support core bitreader object)
+llvm_map_components_to_libnames(llvm_libs support core option bitreader object)
 
-target_link_libraries(${LIBNAME} ${llvm_libs} ${CMAKE_JNI_LINKER_FLAGS})
+target_link_libraries(${LIBNAME} ${llvm_libs} ${CMAKE_JNI_LINKER_FLAGS}
+    clangAnalysis
+    clangApplyReplacements
+    clangARCMigrate
+    clangAST
+    clangASTMatchers
+    clangBasic
+    clangChangeNamespace
+    clangCodeGen
+    clangCrossTU
+    clangDaemon
+    clangDaemonTweaks
+    clangDependencyScanning
+    clangDirectoryWatcher
+    clangDoc
+    clangdRemoteIndex
+    clangDriver
+    clangdSupport
+    clangDynamicASTMatchers
+    clangEdit
+    clangFormat
+    clangFrontend
+    clangFrontendTool
+    clangHandleCXX
+    clangHandleLLVM
+    clangIncludeFixer
+    clangIncludeFixerPlugin
+    clangIndex
+    clangLex
+    clangMove
+    clangParse
+    clangQuery
+    clangReorderFields
+    clangRewrite
+    clangRewriteFrontend
+    clangSema
+    clangSerialization
+    clangStaticAnalyzerCheckers
+    clangStaticAnalyzerCore
+    clangStaticAnalyzerFrontend
+    clangTesting
+    clangTidy
+    clangTidyAbseilModule
+    clangTidyAndroidModule
+    clangTidyBoostModule
+    clangTidyBugproneModule
+    clangTidyCERTModule
+    clangTidyCppCoreGuidelinesModule
+    clangTidyDarwinModule
+    clangTidyFuchsiaModule
+    clangTidyGoogleModule
+    clangTidyHICPPModule
+    clangTidyLinuxKernelModule
+    clangTidyLLVMLibcModule
+    clangTidyLLVMModule
+    clangTidyMain
+    clangTidyMiscModule
+    clangTidyModernizeModule
+    clangTidyMPIModule
+    clangTidyObjCModule
+    clangTidyOpenMPModule
+    clangTidyPerformanceModule
+    clangTidyPlugin
+    clangTidyPortabilityModule
+    clangTidyReadabilityModule
+    clangTidyUtils
+    clangTidyZirconModule
+    clangTooling
+    clangToolingASTDiff
+    clangToolingCore
+    clangToolingInclusions
+    clangToolingRefactoring
+    clangToolingSyntax
+    clangTransformer
+    )
 
 set_target_properties(${LIBNAME} PROPERTIES COMPILE_FLAGS "-fPIC")
 set_target_properties(${LIBNAME} PROPERTIES LINKER_LANGUAGE CXX)

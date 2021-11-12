@@ -23,6 +23,8 @@ import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFILibrary;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
+import com.alibaba.fastffi.stdcxx.StdString;
+import com.alibaba.fastffi.stdcxx.UniquePtr;
 
 @FFIGen
 @CXXHead("llvm/Support/MemoryBuffer.h")

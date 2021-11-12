@@ -387,7 +387,7 @@ public class FFITypeFactory {
         if (ffiTypeId.isEmpty()) {
             throw new IllegalArgumentException("Cannot getLibrary for class " + libraryInterface + " due to empty type registry id.");
         }
-        return getLibrary(libraryInterface, ffiLibrary.value());
+        return getLibrary(libraryInterface, ffiTypeId);
     }
 
     static TypeRegistry ensureLoaded(ClassLoader cl) {

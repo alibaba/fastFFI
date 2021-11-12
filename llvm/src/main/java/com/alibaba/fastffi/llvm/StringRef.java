@@ -16,17 +16,19 @@
 package com.alibaba.fastffi.llvm;
 
 import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.CXXPointer;
 import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIStringProvider;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
 @CXXHead("llvm/ADT/StringRef.h")
 @FFITypeAlias("llvm::StringRef")
-public interface StringRef extends LLVMPointer, FFIStringProvider {
+public interface StringRef extends CXXPointer, FFIStringProvider {
 
     @FFIFactory
     interface Factory {

@@ -13,27 +13,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.fastffi.llvm;
-
-import com.alibaba.fastffi.CXXHead;
-import com.alibaba.fastffi.CXXTemplate;
-import com.alibaba.fastffi.FFIGen;
-import com.alibaba.fastffi.FFITypeAlias;
-
-@FFIGen
-@CXXHead(system = "memory")
-@CXXHead("llvm/Support/MemoryBuffer.h")
-@CXXHead("llvm/IR/Module.h")
-@FFITypeAlias("std::unique_ptr")
-@CXXTemplate(
-        cxx = "llvm::MemoryBuffer",
-        java = "com.alibaba.fastffi.llvm.MemoryBuffer"
-)
-@CXXTemplate(
-        cxx = "llvm::Module",
-        java = "com.alibaba.fastffi.llvm.Module"
-)
-public interface UniquePtr<T> extends LLVMPointer {
-    T get();
-    T release();
-}
+@FFIApplication(jniLibrary = "llvm4jni")
+package com.alibaba.fastffi;

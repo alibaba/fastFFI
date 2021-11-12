@@ -21,6 +21,7 @@ import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFILibrary;
 import com.alibaba.fastffi.FFITypeFactory;
+import com.alibaba.fastffi.stdcxx.UniquePtr;
 
 @FFIGen
 @FFILibrary(value = "llvm::BitcodeReader", namespace = "llvm")
