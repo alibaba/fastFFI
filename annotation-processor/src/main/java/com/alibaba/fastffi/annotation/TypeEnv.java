@@ -1506,6 +1506,9 @@ public class TypeEnv {
         if (gen != null && !gen.library().isEmpty()) {
             return gen.library();
         }
+        if (isFFIBuiltinType(typeElement.asType())) {
+            return null; // builtin type has no loadLibrary
+        }
         PackageElement packageElement = getPackageElement(typeElement);
         if (packageElement != null) {
             while (true) {

@@ -4,7 +4,7 @@
 
 ```
 cd simdjson-java/
-export LLVM_HOME=<path-to-llvm-11-home>
+export LLVM11_HOME=<path-to-llvm-11-home>
 export JAVA_HOME=<path-to-JDK8-HOME>
 bash download.sh # download simdjson from github
 mvn clean package

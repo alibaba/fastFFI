@@ -1,3 +1,18 @@
+/*
+ * Copyright 1999-2021 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.alibaba.fastffi.tool;
 
 import com.alibaba.fastffi.CXXEnum;
@@ -1212,14 +1227,46 @@ public class FFIBindingGenerator {
         buildParamTypes(methodBuilder, methodDecl);
     }
 
+    /**
+     * return null is the given type is not an aliased primitive
+     * @param ffiType
+     * @return
+     */
+    TypeName isAliasedPrimitive(FFIType ffiType) {
+        return isAliasedPrimitive(ffiType.cxxType);
+    }
+
+    TypeName isAliasedPrimitive(Type type) {
+        TypeClass typeClass = type.getTypeClass();
+        switch (typeClass) {
+            case Typedef: {
+                TypedefType typedefType = TypedefType.dyn_cast(type);
+                Type canonicalType = typedefType.getCanonicalTypeInternal().getTypePtr();
+                if (canonicalType.getTypeClass() == TypeClass.Builtin) {
+                    return getJavaTypeName(BuiltinType.dyn_cast(canonicalType));
+                }
+            }
+        }
+
+        return null;
+    }
+
     void buildReturnAndParamTypes(MethodSpec.Builder methodBuilder, CXXMethodDecl methodDecl) {
         Type returnType = methodDecl.getReturnType().getTypePtr();
         FFIType ffiType = typeToFFIType(returnType);
-        methodBuilder.returns(ffiType.javaType);
         if (ffiType.isReference()) {
+            methodBuilder.returns(ffiType.javaType);
             methodBuilder.addAnnotation(CXXReference.class);
         } else if (ffiType.isValue()) {
-            methodBuilder.addAnnotation(CXXValue.class);
+            TypeName aliasedPrimitive = isAliasedPrimitive(ffiType);
+            if (aliasedPrimitive != null) {
+                methodBuilder.returns(aliasedPrimitive);
+            } else {
+                methodBuilder.returns(ffiType.javaType);
+                methodBuilder.addAnnotation(CXXValue.class);
+            }
+        } else {
+            methodBuilder.returns(ffiType.javaType);
         }
         buildParamTypes(methodBuilder, methodDecl);
     }
@@ -1480,10 +1527,15 @@ public class FFIBindingGenerator {
             }
             Type paramType = parmVarDecl.getTypeSourceInfo().getType().getTypePtr();
             FFIType ffiType = typeToFFIType(paramType);
-            ParameterSpec.Builder paramBuilder = ParameterSpec.builder(ffiType.javaType, parmName);
+            TypeName javaType = ffiType.javaType;
+            TypeName aliased = isAliasedPrimitive(ffiType);
+            if (ffiType.isValue() && aliased != null) {
+                javaType = aliased;
+            }
+            ParameterSpec.Builder paramBuilder = ParameterSpec.builder(javaType, parmName);
             if (ffiType.isReference()) {
                 paramBuilder.addAnnotation(CXXReference.class);
-            } else if (ffiType.isValue()) {
+            } else if (ffiType.isValue() && aliased != null) {
                 paramBuilder.addAnnotation(CXXValue.class);
             }
             if (ffiType.javaType instanceof ParameterizedTypeName) {
