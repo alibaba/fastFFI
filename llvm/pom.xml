@@ -31,7 +31,7 @@
 
     <properties>
         <native.library.name>llvm4jni</native.library.name>
-        <cmake.flags>-DLLVM_DIR=${env.LLVM11_HOME}/lib/cmake/llvm</cmake.flags>
+        <cmake.flags>-DLLVM_DIR=${env.LLVM11_HOME}/lib/cmake/llvm -DClang_DIR=${env.LLVM11_HOME}/lib/cmake/clang</cmake.flags>
     </properties>
 
 

@@ -190,6 +190,15 @@
                                 <goals>
                                     <goal>prepare-agent</goal>
                                 </goals>
+                                <configuration>
+                                    <excludes>
+                                        <exclude>com.sun.*</exclude>
+                                        <exclude>sun.*</exclude>
+                                        <exclude>jdk.*</exclude>
+                                        <exclude>java.*</exclude>
+                                        <exclude>javax.*</exclude>
+                                    </excludes>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>
