@@ -1535,7 +1535,7 @@ public class FFIBindingGenerator {
             ParameterSpec.Builder paramBuilder = ParameterSpec.builder(javaType, parmName);
             if (ffiType.isReference()) {
                 paramBuilder.addAnnotation(CXXReference.class);
-            } else if (ffiType.isValue() && aliased != null) {
+            } else if (ffiType.isValue() && aliased == null) {
                 paramBuilder.addAnnotation(CXXValue.class);
             }
             if (ffiType.javaType instanceof ParameterizedTypeName) {
@@ -1596,12 +1596,16 @@ public class FFIBindingGenerator {
             FFIType ffiType = typeToFFIType(fieldDecl.getTypeSourceInfo().getType().getTypePtr());
 
             TypeName javaType = ffiType.javaType;
+            TypeName alias = isAliasedPrimitive(ffiType.cxxType);
+            if (ffiType.isValue() && alias != null) {
+                javaType = alias;
+            }
             MethodSpec.Builder setter = MethodSpec.methodBuilder(name).addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT).addAnnotation(FFISetter.class);
             ParameterSpec.Builder paramBuilder = ParameterSpec.builder(javaType, "value");
             MethodSpec.Builder getter = MethodSpec.methodBuilder(name).addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT).addAnnotation(FFIGetter.class);
             getter.returns(javaType);
             setter.returns(TypeName.VOID);
-            if (ffiType.isReference() || ffiType.isValue()) {
+            if (ffiType.isReference() || (ffiType.isValue() && alias == null)) {
                 getter.addAnnotation(CXXReference.class);
                 paramBuilder.addAnnotation(CXXReference.class);
             }
