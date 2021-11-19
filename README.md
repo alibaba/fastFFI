@@ -96,6 +96,22 @@ Usage:
 </plugin>
 ```
 
+## Build Mac OS
+
+0. Install a JDK (JDK 8 and 11)
+
+1. Install LLVM 11, Maven and CMake
+
+```
+brew install llvm@11 cmake maven
+```
+
+2. Set ENV
+
+```
+export LLVM11_HOME=/usr/local/Cellar/llvm@11/<version-number>
+```
+
 ## FAQ
 
 TBA
