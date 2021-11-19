@@ -23,6 +23,7 @@ import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.SmallVectorImpl;
 
 @FFIGen
 @CXXHead("clang/AST/ASTContext.h")
@@ -31,4 +32,6 @@ public interface ASTContext extends CXXPointer {
     TranslationUnitDecl getTranslationUnitDecl();
     @CXXReference SourceManager getSourceManager();
     @CXXReference PrintingPolicy getPrintingPolicy();
+
+    @CXXReference SmallVectorImpl<Type> getTypes();
 }

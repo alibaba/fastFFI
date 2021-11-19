@@ -13,19 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.fastffi.clang;
+package com.alibaba.fastffi.llvm;
 
-import com.alibaba.fastffi.CXXHead;
-import com.alibaba.fastffi.FFIGen;
-import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.*;
+import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
-@FFITypeAlias("clang::NonTypeTemplateParmDecl")
-@CXXHead("clang/AST/DeclTemplate.h")
-public interface NonTypeTemplateParmDecl extends DeclaratorDecl {
-    static NonTypeTemplateParmDecl dyn_cast(Decl decl) {
-        return DeclCasting.INSTANCE.dyn_cast(decl, (NonTypeTemplateParmDecl) null);
-    }
+@CXXHead("llvm/ADT/SmallVector.h")
+@FFITypeAlias("llvm::SmallVectorImpl")
+public interface SmallVectorImpl<T> extends CXXPointer {
 
-    boolean hasDefaultArgument();
+    long size();
+    @CXXOperator("[]")
+    @CXXReference T get(long index);
 }

@@ -26,4 +26,6 @@ public interface EnumType extends TagType {
     static EnumType dyn_cast(Type type) {
         return TypeCasting.INSTANCE.dyn_cast(type, (EnumType) null);
     }
+
+    EnumDecl getDecl();
 }

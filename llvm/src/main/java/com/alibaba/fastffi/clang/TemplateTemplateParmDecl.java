@@ -26,4 +26,6 @@ public interface TemplateTemplateParmDecl extends TemplateDecl {
     static TemplateTemplateParmDecl dyn_cast(Decl decl) {
         return DeclCasting.INSTANCE.dyn_cast(decl, (TemplateTemplateParmDecl) null);
     }
+
+    boolean hasDefaultArgument();
 }
