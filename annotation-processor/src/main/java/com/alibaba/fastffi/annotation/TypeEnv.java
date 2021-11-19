@@ -76,12 +76,7 @@ import java.util.Stack;
 import java.util.stream.Collectors;
 
 import static com.alibaba.fastffi.FFIUtils.addToMapList;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getPackageElement;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isArrayType;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isDeclaredType;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isPrimitiveType;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isTypeVariable;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.typeNameToDeclaredType;
+import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.*;
 
 /**
  * Put common type related method in this class
@@ -101,17 +96,17 @@ public class TypeEnv {
         return kindOrdinal >= TypeKind.BOOLEAN.ordinal() && kindOrdinal <= TypeKind.VOID.ordinal();
     }
 
-    CXXTemplate getCXXTemplateForBuiltinType(DeclaredType typeMirror) {
-        List<? extends TypeMirror> typeArguments = typeMirror.getTypeArguments();
-        if (typeArguments.isEmpty()) {
-            throw new IllegalStateException("Oops...");
+    CXXTemplate getCXXTemplate(TypeMapping[] typeMappings, CXXHead[] heads) {
+        String[] cxx = new String[typeMappings.length];
+        String[] java = new String[typeMappings.length];
+        for (int i = 0; i < typeMappings.length; i++) {
+            cxx[i] = typeMappings[i].cxx;
+            java[i] = typeToTypeName(typeMappings[i].java);
         }
-        final String[] cxx = new String[typeArguments.size()];
-        final String[] java = new String[cxx.length];
-        for (int i = 0; i < cxx.length; i++) {
-            cxx[i] = getFFITypeNameForBuiltinType((DeclaredType) typeArguments.get(i), false);
-            java[i] = getFFITypeNameForBuiltinType((DeclaredType) typeArguments.get(i), true);
-        }
+        return getCXXTemplate(cxx, java, heads);
+    }
+
+    CXXTemplate getCXXTemplate(String[] cxx, String[] java, CXXHead[] heads) {
         return new CXXTemplate() {
 
             @Override
@@ -136,6 +131,9 @@ public class TypeEnv {
 
             @Override
             public CXXHead[] include() {
+                if (heads != null) {
+                    return heads;
+                }
                 return new CXXHead[0];
             }
 
@@ -167,6 +165,20 @@ public class TypeEnv {
                         && Arrays.equals(java(), casted.java());
             }
         };
+    }
+
+    CXXTemplate getCXXTemplateForBuiltinType(DeclaredType typeMirror) {
+        List<? extends TypeMirror> typeArguments = typeMirror.getTypeArguments();
+        if (typeArguments.isEmpty()) {
+            throw new IllegalStateException("Oops...");
+        }
+        final String[] cxx = new String[typeArguments.size()];
+        final String[] java = new String[cxx.length];
+        for (int i = 0; i < cxx.length; i++) {
+            cxx[i] = getFFITypeNameForBuiltinType((DeclaredType) typeArguments.get(i), false);
+            java[i] = getFFITypeNameForBuiltinType((DeclaredType) typeArguments.get(i), true);
+        }
+        return getCXXTemplate(cxx, java, new CXXHead[0]);
     }
 
     protected void error(String format, Object... args) {
@@ -221,15 +233,15 @@ public class TypeEnv {
         throw new IllegalStateException("TODO: getTypeName of type " + typeMirror + " is not supported yet");
     }
 
-    protected <T> T[] merge(T[] cxxTemplates, T[] additionalTemplates) {
-        if (additionalTemplates.length == 0) {
-            return cxxTemplates;
+    static <T> T[] merge(T[] a1, T[] a2) {
+        if (a2.length == 0) {
+            return a1;
         }
-        if (cxxTemplates.length == 0) {
-            return additionalTemplates;
+        if (a1.length == 0) {
+            return a2;
         }
-        T[] newArray = Arrays.copyOf(cxxTemplates, additionalTemplates.length + cxxTemplates.length);
-        System.arraycopy(additionalTemplates, 0, newArray, cxxTemplates.length, additionalTemplates.length);
+        T[] newArray = Arrays.copyOf(a1, a2.length + a1.length);
+        System.arraycopy(a2, 0, newArray, a1.length, a2.length);
         return newArray;
     }
 
@@ -629,13 +641,6 @@ public class TypeEnv {
         return false;
     }
 
-    protected String getInternalTypeName(TypeMapping typeMapping, ExecutableElement executableElement) {
-        TypeDef internalTypeDef = getTypeDefByForeignName(typeMapping);
-        if (internalTypeDef == null) {
-            throw new IllegalStateException("Cannot find a TypeDef for " + typeMapping + " during generating " + AnnotationProcessorUtils.format(executableElement));
-        }
-        return internalTypeDef.getGeneratedJavaClassName();
-    }
 
     protected boolean requireCreatingTypeMapping(ExecutableType executableType) {
         if (requireCreatingTypeMapping(executableType.getReturnType())) {
@@ -902,15 +907,7 @@ public class TypeEnv {
         return false;
     }
 
-    protected TypeDef getTypeDefByForeignName(TypeMapping typeMapping) {
-        DeclaredType javaType = (DeclaredType) typeMapping.java;
-        if (isFFIBuiltinType(javaType)) {
-            javaType = getFFIBuiltinImplType(javaType);
-        }
-        return getTypeDefByForeignName(typeMapping.cxx, javaType);
-    }
-
-    private DeclaredType getFFIBuiltinImplType(DeclaredType javaType) {
+    DeclaredType getFFIBuiltinImplType(DeclaredType javaType) {
         if (isFFIBuiltinType(javaType)) {
             if (isFFIByteString(javaType)) {
                 return (DeclaredType) getTypeMirror(CXXStdString.class);
@@ -1038,11 +1035,11 @@ public class TypeEnv {
             TypeDef internalType = getTypeDefByForeignName(ffiRawType, theType);
 
             if (internalType != null) {
-                if (!typeUtils().isAssignable(internalType.getTypeMirror(processingEnv), theType)) {
+                if (!typeUtils().isAssignable(internalType.getDeclaredTypeMirror(processingEnv), theType)) {
                     throw new IllegalStateException("Mismatching internal type for " + ffiRawType
-                            + " find " + internalType.getTypeMirror(processingEnv) + ", expected " + theType);
+                            + " find " + internalType.getDeclaredTypeMirror(processingEnv) + ", expected " + theType);
                 }
-                return new TypeMapping(ffiRawType, internalType.getTypeMirror(processingEnv));
+                return new TypeMapping(ffiRawType, internalType.getDeclaredTypeMirror(processingEnv));
             } else /* if (internalType == null) */ {
                 if (typeElement.getAnnotation(FFIGen.class) != null) {
                     throw new IllegalStateException("Cannot find an internal generated type for " + ffiRawType);
@@ -1283,7 +1280,8 @@ public class TypeEnv {
         }
     }
 
-    protected Map<String, TypeMapping> computeInterfaceTypeMapping(TypeElement typeElement, DeclaredType interfaceMirror, Map<String, TypeMapping> enclosingTypeMapping) {
+    protected Map<String, TypeMapping> computeInterfaceTypeMapping(TypeElement typeElement, DeclaredType interfaceMirror,
+                                                                   Map<String, TypeMapping> enclosingTypeMapping) {
         // interface type arguments are types already defined in the instantiated interface mirror
         List<? extends TypeMirror> interfaceTypeArguments = interfaceMirror.getTypeArguments();
 
@@ -1355,19 +1353,38 @@ public class TypeEnv {
         return getForeignTypeByTypeAlias(declaredType);
     }
 
-    protected void instantiateSuperTemplate(TypeElement typeElement) {
-        CXXSuperTemplate[] superTemplates = typeElement.getAnnotationsByType(CXXSuperTemplate.class);
-        if (superTemplates == null) {
-            return;
-        }
-        for (CXXSuperTemplate superTemplate : superTemplates) {
-            instantiateSuperTemplate(superTemplate);
-        }
-    }
 
-    protected void instantiateSuperTemplate(CXXSuperTemplate superTemplate) {
+    protected void instantiateSuperTemplates(CXXSuperTemplate superTemplate) {
         TypeElement typeElement = getTypeElement(superTemplate.type());
         registry.processType(processingEnv, typeElement, superTemplate.template(), true);
+    }
+
+
+    TypeMapping[] getTypeArgumentsTypeMapping(List<? extends TypeMirror> typeArguments,
+                                              Map<String, TypeMapping> enclosingTypeMapping) {
+        TypeMapping[] parameterTypeMapping = new TypeMapping[typeArguments.size()];
+        for (int i = 0; i < typeArguments.size(); i++) {
+            TypeMirror typeArg = typeArguments.get(i);
+            if (isTypeVariable(typeArg)) {
+                TypeVariable typeVariable = (TypeVariable) typeArg;
+                String typeVariableName = typeVariable.asElement().getSimpleName().toString();
+                TypeMapping typeMapping = enclosingTypeMapping.get(typeVariableName);
+                if (typeMapping == null) {
+                    return null;
+                }
+                parameterTypeMapping[i] = typeMapping;
+            } else if (isDeclaredType(typeArg)) {
+                DeclaredType declaredType = (DeclaredType) typeArg;
+                TypeMapping typeMapping = substitute(enclosingTypeMapping, (TypeElement) declaredType.asElement(), declaredType, Collections.emptySet());
+                if (typeMapping == null) {
+                    return null;
+                }
+                parameterTypeMapping[i] = typeMapping;
+            } else {
+                throw new IllegalStateException("Unsupported type: " + typeArg);
+            }
+        }
+        return parameterTypeMapping;
     }
 
     protected Map<String, TypeMapping> getSuperTypeMapping(TypeElement typeElement, TypeElement interfaceElement) {
@@ -1382,7 +1399,7 @@ public class TypeEnv {
         if (typeParameters.size() != superTemplate.template().cxx().length) {
             throw new IllegalStateException("Inconsistent number between type parameters and super template.");
         }
-        instantiateSuperTemplate(superTemplate);
+        instantiateSuperTemplates(superTemplate);
         int size = typeParameters.size();
         String[] cxx = superTemplate.template().cxx();
         String[] java = superTemplate.template().java();

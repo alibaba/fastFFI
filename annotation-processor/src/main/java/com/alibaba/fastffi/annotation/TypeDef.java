@@ -122,12 +122,32 @@ public class TypeDef {
     }
 
     /**
+     * Get the declared type element of this TypeDef
+     * @param processingEnvironment
+     * @return
+     */
+    public TypeElement getDeclaredTypeElement(ProcessingEnvironment processingEnvironment) {
+        return processingEnvironment.getElementUtils().getTypeElement(declaredTypeElementName);
+    }
+
+    /**
      * Get the type mirror of this TypeDef
      * @param processingEnvironment
      * @return
      */
     public DeclaredType getTypeMirror(ProcessingEnvironment processingEnvironment) {
         return getTypeMirror(processingEnvironment, getTypeElement(processingEnvironment));
+    }
+
+    public DeclaredType getDeclaredTypeMirror(ProcessingEnvironment processingEnvironment) {
+        return getDeclaredTypeMirror(processingEnvironment, getDeclaredTypeElement(processingEnvironment));
+    }
+
+    DeclaredType getDeclaredTypeMirror(ProcessingEnvironment processingEnvironment, TypeElement typeElement) {
+        if (!typeElement.getQualifiedName().toString().equals(declaredTypeElementName)) {
+            throw new IllegalArgumentException("Expected " + declaredTypeElementName + ", got " + typeElement);
+        }
+        return getDeclaredType(processingEnvironment, getDeclaredTypeElement(processingEnvironment));
     }
 
     /**
@@ -140,6 +160,10 @@ public class TypeDef {
         if (!typeElement.getQualifiedName().toString().equals(typeElementName)) {
             throw new IllegalArgumentException("Expected " + typeElementName + ", got " + typeElement);
         }
+        return getDeclaredType(processingEnv, typeElement);
+    }
+
+    DeclaredType getDeclaredType(ProcessingEnvironment processingEnv, TypeElement typeElement) {
         if (template == null) {
             return (DeclaredType) typeElement.asType();
         }
@@ -150,6 +174,7 @@ public class TypeDef {
         }
         return processingEnv.getTypeUtils().getDeclaredType(typeElement, javaTypes);
     }
+
 
     public boolean isFFILibrary() {
         return ffiLibrary != null;
@@ -272,10 +297,6 @@ public class TypeDef {
 
     public final String getGeneratedJavaSimpleClassName() {
         return simpleClassName;
-    }
-
-    public static boolean isSafeJavaName(String name) {
-        return !name.contains("_cxx_");
     }
 
     public String getPackageName() {

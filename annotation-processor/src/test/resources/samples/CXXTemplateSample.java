@@ -50,6 +50,7 @@ interface CXXEmptyTemplateSample2 extends FFIPointer {
 
 @FFIGen(library = "CXXTemplateSample")
 @FFITypeAlias("CXXEmptyTemplateSample3")
+@CXXTemplate(cxx = "bool", java = "Boolean")
 interface CXXEmptyTemplateSample3<T1> extends FFIPointer {
     <T2> void api(T1 t1, T2 t2);
 }
@@ -58,4 +59,30 @@ interface CXXEmptyTemplateSample3<T1> extends FFIPointer {
 @FFITypeAlias("CXXEmptyTemplateSample4")
 interface CXXEmptyTemplateSample4 extends CXXEmptyTemplateSample2 {
     <T> void api2(T t);
+}
+
+@FFIGen(library = "CXXTemplateSample")
+@FFITypeAlias("CXXEmptyTemplateSample5")
+interface CXXEmptyTemplateSample5<T1> extends FFIPointer {
+
+}
+
+@FFIGen(library = "CXXTemplateSample")
+@FFITypeAlias("CXXEmptyTemplateSample6")
+@CXXTemplate(cxx = "bool", java = "Boolean")
+interface CXXEmptyTemplateSample6<T1> extends CXXEmptyTemplateSample5<T1> {
+
+}
+
+@FFIGen(library = "CXXTemplateSample")
+@FFITypeAlias("CXXEmptyTemplateSample7")
+interface CXXEmptyTemplateSample7 extends FFIPointer {
+    CXXEmptyTemplateSample6<CXXEmptyTemplateSample4> test();
+}
+
+@FFIGen(library = "CXXTemplateSample")
+@FFITypeAlias("CXXEmptyTemplateSample8")
+@CXXTemplate(cxx = "bool", java = "Boolean")
+interface CXXEmptyTemplateSample8<T1> extends CXXEmptyTemplateSample3<T1> {
+
 }

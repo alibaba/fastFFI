@@ -18,6 +18,7 @@ package com.alibaba.fastffi.annotation;
 import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.CXXOperator;
 import com.alibaba.fastffi.CXXPointerRangeElement;
+import com.alibaba.fastffi.CXXSuperTemplate;
 import com.alibaba.fastffi.CXXTemplate;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIConst;
@@ -48,6 +49,7 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
@@ -70,7 +72,6 @@ import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
-import javax.tools.JavaFileManager;
 import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.Writer;
@@ -90,13 +91,6 @@ import java.util.stream.Collectors;
 
 import static com.alibaba.fastffi.FFIUtils.addToMapList;
 import static com.alibaba.fastffi.FFIUtils.encodeNativeMethodName;
-import static com.alibaba.fastffi.annotation.AnnotationProcessor.CXX_OUTPUT_LOCATION_KEY;
-import static com.alibaba.fastffi.annotation.AnnotationProcessor.HANDLE_EXCEPTION_KEY;
-import static com.alibaba.fastffi.annotation.AnnotationProcessor.MANUAL_BOXING_KEY;
-import static com.alibaba.fastffi.annotation.AnnotationProcessor.NULL_RETURN_VALUE_CHECK_KEY;
-import static com.alibaba.fastffi.annotation.AnnotationProcessor.STRICT_TYPE_CHECK_KEY;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getBoolean;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getLocation;
 
 public class TypeDefGenerator extends TypeEnv {
 
@@ -307,16 +301,26 @@ public class TypeDefGenerator extends TypeEnv {
             if (isFFIPointerElement(interfaceElement) || isFFILibraryElement(interfaceElement)) {
                 TypeGenType typeGenType = probeGenType(interfaceElement);
                 if (typeGenType == TypeGenType.FFITemplate) {
-                    String superPackage = AnnotationProcessorUtils.extractPackageName(interfaceElement);
-                    String superGenName = interfaceElement.getSimpleName().toString() + "Gen";
                     FFIGen ffiGen = interfaceElement.getAnnotation(FFIGen.class);
                     if (ffiGen == null) {
                         throw reportError("Missing @FFIGen in " + AnnotationProcessorUtils.format(interfaceElement));
                     }
-                    classBuilder.addSuperinterface(ClassName.get(superPackage, superGenName));
+                    TypeName oldTypeName = TypeName.get(interfaceMirror);
+                    TypeName genName;
+                    if (oldTypeName instanceof ClassName) {
+                        ClassName oldClassName = (ClassName) oldTypeName;
+                        genName = ClassName.get(oldClassName.packageName(), oldClassName.simpleName() + "Gen");
+                    } else if (oldTypeName instanceof ParameterizedTypeName) {
+                        ParameterizedTypeName oldParameterizedName = (ParameterizedTypeName) oldTypeName;
+                        ClassName oldClassName = oldParameterizedName.rawType;
+                        genName = ParameterizedTypeName.get(ClassName.get(oldClassName.packageName(), oldClassName.simpleName() + "Gen"),
+                                oldParameterizedName.typeArguments.toArray(new TypeName[0]));
+                    } else {
+                        throw new IllegalStateException("Should not reach here");
+                    }
+                    classBuilder.addSuperinterface(genName);
                 }
             }
-
         }
 
         // add type variable, modifiers and annotations
@@ -691,6 +695,54 @@ public class TypeDefGenerator extends TypeEnv {
         return topLevelNameToMapping;
     }
 
+    protected void instantiateSuperTemplates(CXXTemplate template, TypeElement typeElement) {
+        CXXHead[] heads = typeElement.getAnnotationsByType(CXXHead.class);
+        if (template != null) {
+            heads = merge(template.include(), heads);
+        }
+        CXXSuperTemplate[] superTemplates = typeElement.getAnnotationsByType(CXXSuperTemplate.class);
+        Set<String> processed = new HashSet<>();
+        if (superTemplates == null) {
+            for (CXXSuperTemplate superTemplate : superTemplates) {
+                instantiateSuperTemplates(superTemplate);
+                processed.add(superTemplate.type());
+            }
+        }
+        Map<String, TypeMapping> topLevelNameToMapping = createTopLevelTypeMapping(template, typeElement.getTypeParameters(), typeElement);
+        List<? extends TypeMirror> superTypes = typeUtils().directSupertypes(typeElement.asType());
+        // i = 1: skip super class and start from interface
+        outer: for (int i = 1; i < superTypes.size(); i++) {
+            DeclaredType superType = (DeclaredType) superTypes.get(i);
+            if (!isFFIPointer(superType)) {
+                continue;
+            }
+            FFITypeAlias ffiTypeAlias = asElement(superType).getAnnotation(FFITypeAlias.class);
+            if (ffiTypeAlias == null) {
+                continue; // ignore fake/phantom/helper FFIPointer
+            }
+            List<? extends TypeMirror> typeArguments = superType.getTypeArguments();
+            if (typeArguments.isEmpty()) {
+                continue;
+            }
+            TypeElement superElement = (TypeElement) superType.asElement();
+            String superBaseName = superElement.getQualifiedName().toString();
+            if (processed.contains(superBaseName)) {
+                continue; // instantiated
+            }
+            TypeMapping[] parameterMapping = getTypeArgumentsTypeMapping(typeArguments, topLevelNameToMapping);
+            if (parameterMapping == null) {
+                // we cannot automatically instantiate it
+                continue;
+            }
+            registry.processType(processingEnv, superElement, getCXXTemplate(parameterMapping, heads), true);
+            processed.add(superBaseName);
+        }
+    }
+
+    void instantiateSuperTemplates() {
+        instantiateSuperTemplates(typeDef.getCXXTemplate(), typeDef.getTypeElement(processingEnv));
+    }
+
     private void generateFFIPointerOrFFILibrary() {
         if (isGenFFITemplate()) {
             throw new IllegalStateException("Must be FFIPointer or FFILibrary, got " + genType);
@@ -698,9 +750,6 @@ public class TypeDefGenerator extends TypeEnv {
         try {
             // do preparation to collect methods
             prepare();
-
-            // instantiate super templates
-            instantiateSuperTemplate(theTypeElement);
 
             // generate heads
             generateIncludedCXXHeads();
@@ -1391,6 +1440,41 @@ public class TypeDefGenerator extends TypeEnv {
         }
     }
 
+    protected String getInternalTypeName(TypeMapping typeMapping, ExecutableElement executableElement) {
+        TypeDef internalTypeDef = getTypeDefByForeignName(typeMapping);
+        if (internalTypeDef == null) {
+            throw new IllegalStateException("Cannot find a TypeDef for " + typeMapping + " during generating " + AnnotationProcessorUtils.format(executableElement));
+        }
+        return internalTypeDef.getGeneratedJavaClassName();
+    }
+
+    protected TypeDef getTypeDefByForeignName(TypeMapping typeMapping) {
+        DeclaredType javaType = (DeclaredType) typeMapping.java;
+        if (isFFIBuiltinType(javaType)) {
+            javaType = getFFIBuiltinImplType(javaType);
+        }
+        TypeDef typeDef = getTypeDefByForeignName(typeMapping.cxx, javaType);
+        if (typeDef == null) {
+            List<? extends TypeMirror> typeArguments = javaType.getTypeArguments();
+            if (!typeArguments.isEmpty()) {
+                // let's try to instantiate a template;
+                TypeMapping[] argumentsTypeMapping = getTypeArgumentsTypeMapping(typeArguments, Collections.emptyMap());
+                if (argumentsTypeMapping == null) {
+                    return null;
+                }
+                registry.processType(processingEnv, (TypeElement) javaType.asElement(), getCXXTemplate(argumentsTypeMapping, getCXXHeads()), true);
+                return getTypeDefByForeignName(typeMapping.cxx, javaType);
+            }
+        }
+        return typeDef;
+    }
+
+    private CXXHead[] getCXXHeads() {
+        CXXHead[] heads = theTypeElement.getAnnotationsByType(CXXHead.class);
+        CXXHead[] extra = typeDef.getAdditionalInclude();
+        return merge(heads, extra);
+    }
+
     private void generateIncludedCXXHeads(boolean isFFIMirrorHead, Collection<String> additional) {
         StringBuilder writer = isFFIMirrorHead ? hxxWriter : cxxWriter;
 
@@ -1915,7 +1999,7 @@ public class TypeDefGenerator extends TypeEnv {
         TypeMirror rawTheTypeMirror = typeElement.asType();
         List<? extends TypeMirror> superTypes = typeUtils().directSupertypes(rawTheTypeMirror);
         // i = 1: skip super class
-        TypeMirror rawTheSuperType = null;
+        DeclaredType rawTheSuperType = null;
         for (int i = 1; i < superTypes.size(); i++) {
             TypeMirror superType = superTypes.get(i);
             if (typeUtils().isSameType(ffiPointerType, superType)) {
@@ -1929,7 +2013,7 @@ public class TypeDefGenerator extends TypeEnv {
                 continue; // ignore fake/phantom/helper FFIPointer
             }
             if (rawTheSuperType == null) {
-                rawTheSuperType = superType;
+                rawTheSuperType = (DeclaredType) superType;
             } else {
                 // conflict: multi-inheritance
                 return null;
@@ -1939,7 +2023,7 @@ public class TypeDefGenerator extends TypeEnv {
             return null;
         }
         Map<String, TypeMapping> topLevelNameToMapping = getTopLevelNameToMapping();
-        Map<String, TypeMapping> superInterfaceMapping = computeInterfaceTypeMapping(typeElement, (DeclaredType) rawTheSuperType, topLevelNameToMapping);
+        Map<String, TypeMapping> superInterfaceMapping = computeInterfaceTypeMapping(typeElement, rawTheSuperType, topLevelNameToMapping);
         TypeMapping typeMapping = createTypeMapping(superInterfaceMapping, asElement(rawTheSuperType).asType(), Collections.emptySet());
         if (typeMapping == null) {
             throw reportError("Cannot get a TypeMapping for " + rawTheSuperType);

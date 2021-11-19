@@ -38,8 +38,6 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Function;
 
-import static com.alibaba.fastffi.annotation.AnnotationProcessor.CXX_OUTPUT_LOCATION_KEY;
-import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getLocation;
 import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.getTypeElement;
 import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.isSameFFIGen;
 import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.toHeaderGuard;
@@ -169,7 +167,10 @@ public class TypeDefRegistry {
 
     public void registerFFIPointerTypeDef(TypeDef def, TypeDefGenerator generator, boolean gen) {
         if (registerFFIPointerTypeDef(def)) {
-            if (gen) addGenerator(generator);
+            if (gen) {
+                addGenerator(generator);
+                generator.instantiateSuperTemplates();
+            }
         }
     }
 
@@ -383,10 +384,6 @@ public class TypeDefRegistry {
             if (ffiLibrary != null) {
                 throw new IllegalArgumentException("TODO: We cannot have a FFITypeAlias annotation for FFILibrary " + typeElement);
             }
-        }
-
-        if (!TypeDef.isSafeJavaName(typeElement.getQualifiedName().toString())) {
-            throw new IllegalArgumentException("TODO: The name of " + typeElement + " contains reserved segments, e.g., _cxx_");
         }
 
         if (!typeElement.getTypeParameters().isEmpty()) {
