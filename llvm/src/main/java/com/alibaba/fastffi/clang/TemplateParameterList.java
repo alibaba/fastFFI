@@ -27,4 +27,6 @@ public interface TemplateParameterList extends LLVMPointer {
     int size();
     NamedDecl getParam(int idx);
     int getMinRequiredArguments();
+
+    boolean hasParameterPack();
 }

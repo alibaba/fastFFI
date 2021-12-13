@@ -44,12 +44,16 @@ import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.toHeaderGu
 
 public class TypeDefRegistry {
 
+    static String normalize(String cxx) {
+        return cxx.replace("const ", "");
+    }
+
     static class Key {
         String cxx;
         String java;
 
         public Key(String cxx, String java) {
-            this.cxx = cxx;
+            this.cxx = normalize(cxx);
             this.java = java;
         }
 

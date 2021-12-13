@@ -49,8 +49,8 @@ public enum AccessSpecifier implements CXXEnum {
         @FFIGetter int AS_none();
     }
 
-    public final boolean isPublic() {
-        return this == AS_public;
+    public final boolean isPublicOrNone() {
+        return this == AS_public || this == AS_none;
     }
 
     AccessSpecifier(int value) {

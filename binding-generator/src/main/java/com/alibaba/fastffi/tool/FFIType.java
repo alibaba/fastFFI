@@ -20,6 +20,7 @@ import com.alibaba.fastffi.clang.BuiltinType;
 import com.alibaba.fastffi.clang.ElaboratedType;
 import com.alibaba.fastffi.clang.LValueReferenceType;
 import com.alibaba.fastffi.clang.PointerType;
+import com.alibaba.fastffi.clang.QualType;
 import com.alibaba.fastffi.clang.RValueReferenceType;
 import com.alibaba.fastffi.clang.ReferenceType;
 import com.alibaba.fastffi.clang.Type;
@@ -46,8 +47,12 @@ import java.util.Objects;
  * Every cxxType has a javaType. If the javaType is not primitive, it must have a corresponding class builder.
  */
 public class FFIType {
+    final QualType cxxQualType;
     final Type cxxType;
     final TypeName javaType;
+
+    private boolean requirePointer;
+    private boolean verified;
 
     @Override
     public boolean equals(Object o) {
@@ -73,29 +78,93 @@ public class FFIType {
     }
 
     public String toString() {
-        return String.format("<%s, %s%s>", cxxType.getCanonicalTypeInternal().getAsString(), javaAnnotation(), javaType);
+        return String.format("<%s, %s%s>", cxxQualType.getAsString(), javaAnnotation(), javaType);
     }
 
-    public FFIType(Type cxxType, TypeName javaType) {
-        this.cxxType = cxxType;
+    public FFIType(QualType cxxType, TypeName javaType) {
+        this.cxxQualType = cxxType;
+        this.cxxType = cxxType.getTypePtr();
         this.javaType = javaType;
         sanityCheck();
     }
 
-    public Type getPointeeType() {
-        if (isPointer()) {
-            PointerType pointerType = PointerType.dyn_cast(cxxType);
-            return pointerType.getPointeeType().getTypePtr();
-        }
-        if (isReference()) {
-            if (cxxType.getTypeClass() == TypeClass.LValueReference) {
-                return LValueReferenceType.dyn_cast(cxxType).getPointeeType().getTypePtr();
+    public QualType getPointeeType() {
+        if (cxxType.getTypeClass() == TypeClass.Typedef) {
+            if (javaType instanceof TypeVariableName) {
+                return getPointeeType(TypedefType.dyn_cast(cxxType).getCanonicalTypeInternal());
             }
-            if (cxxType.getTypeClass() == TypeClass.RValueReference) {
-                return RValueReferenceType.dyn_cast(cxxType).getPointeeType().getTypePtr();
+            return null;
+        }
+        return getPointeeType(cxxQualType);
+    }
+
+    QualType getPointeeType(QualType qualType) {
+        Type type = qualType.getTypePtr();
+        TypeClass typeClass = type.getTypeClass();
+        switch (typeClass) {
+            case Pointer: {
+                PointerType pointerType = PointerType.dyn_cast(type);
+                return pointerType.getPointeeType();
+            }
+            case LValueReference: {
+                return LValueReferenceType.dyn_cast(type).getPointeeType();
+            }
+            case RValueReference: {
+                return RValueReferenceType.dyn_cast(type).getPointeeType();
+            }
+            case Elaborated: {
+                return getPointeeType(ElaboratedType.dyn_cast(type).desugar());
             }
         }
-        throw new IllegalStateException("Not a pointer or reference: " + cxxType);
+        return null;
+    }
+
+    boolean isVoidPointer() {
+        if (!javaType.equals(TypeName.LONG)) {
+            return false;
+        }
+        return isPointer(cxxType) && isVoid(getPointeeType().getTypePtr());
+    }
+
+    void setRequirePointer() {
+        this.requirePointer = true;
+    }
+
+    boolean requirePointer() {
+        return requirePointer;
+    }
+
+    boolean isVoid(Type type) {
+        if (type.getTypeClass() != TypeClass.Builtin) {
+            return false;
+        }
+        BuiltinType builtinType = BuiltinType.dyn_cast(type);
+        return builtinType.getKind() == BuiltinType.Kind.Void;
+    }
+
+    boolean hasTypeVariable(TypeName typeName) {
+        if (typeName instanceof TypeVariableName) {
+            return true;
+        }
+        if (typeName instanceof ParameterizedTypeName) {
+            ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) typeName;
+            for (TypeName argTypeName : parameterizedTypeName.typeArguments) {
+                if (hasTypeVariable(argTypeName)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean needFFITypeAlias() {
+        if (isEnum() || isVoidPointer()) {
+            return true;
+        }
+        if (javaType instanceof ParameterizedTypeName) {
+            return !hasTypeVariable(javaType);
+        }
+        return false;
     }
 
     private void sanityCheck() {
@@ -132,14 +201,14 @@ public class FFIType {
 
     public boolean isPointeePrimitive() {
         if (isPointer() || isReference()) {
-            return isPrimitive(getPointeeType());
+            return isPrimitive(getPointeeType().getTypePtr());
         }
         return false;
     }
 
     public boolean isPointeePointerOrReference() {
         if (isPointer() || isReference()) {
-            Type pointeeType = getPointeeType();
+            Type pointeeType = getPointeeType().getTypePtr();
             return pointeeType.getTypeClass() == TypeClass.Pointer
                     || pointeeType.getTypeClass() == TypeClass.LValueReference
                     || pointeeType.getTypeClass() == TypeClass.RValueReference;
@@ -153,6 +222,20 @@ public class FFIType {
      */
     public boolean isTemplateVariableDependent() {
         return javaType instanceof TypeVariableName;
+    }
+
+    public boolean isEnum() {
+        return isEnum(cxxType);
+    }
+
+    boolean isEnum(Type type) {
+        if (type.getTypeClass() == TypeClass.Enum) {
+            return true;
+        }
+        if (type instanceof ElaboratedType) {
+            return isEnum(((ElaboratedType) type).desugar().getTypePtr());
+        }
+        return false;
     }
 
     boolean isPointer(Type type) {

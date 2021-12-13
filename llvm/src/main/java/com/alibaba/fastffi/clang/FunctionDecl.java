@@ -49,6 +49,8 @@ public interface FunctionDecl extends DeclaratorDecl, DeclContext {
     boolean isExternC();
     boolean isThisDeclarationADefinition();
 
+    boolean isPure();
+
     boolean isOverloadedOperator();
     @CXXValue OverloadedOperatorKind getOverloadedOperator();
 

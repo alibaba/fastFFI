@@ -2032,7 +2032,10 @@ public class TypeDefGenerator extends TypeEnv {
     }
 
     private String getNativeMethodName(String methodName) {
-        return "native" + Character.toUpperCase(methodName.charAt(0)) + methodName.substring(1);
+        if (Character.isLowerCase(methodName.charAt(0))) {
+            return "native" + Character.toUpperCase(methodName.charAt(0)) + methodName.substring(1);
+        }
+        return "native_" + methodName;
     }
 
     RuntimeException reportMalformedIntrinsic(ExecutableElement executableElement, ExecutableType executableType, FFIIntrinsic intrinsic) {

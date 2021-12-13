@@ -28,7 +28,7 @@ public interface NamespaceDecl extends NamedDecl, DeclContext {
         return DeclCasting.INSTANCE.dyn_cast(decl, (NamespaceDecl) null);
     }
     boolean isAnonymousNamespace();
-
+    boolean isInline();
     Decl getPreviousDecl();
     Decl getMostRecentDecl();
     boolean isFirstDecl();

@@ -1,0 +1,15 @@
+TODO
+
+1. Name hiding
+    * workaround: use blacklist
+2. Name conflict: two headers can define a type with the same name.
+3. Forward declaration:
+    ```cpp
+    // foo.h
+    class Foo {}
+    // bar.h
+    class Foo;
+    Foo* foo; // we cannot find the declaration in the translation unit of bar.h if bar.h does not include foo.h
+    ```
+4. Global variables and functions
+

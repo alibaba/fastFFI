@@ -26,4 +26,8 @@ public interface CXXConstructorDecl extends CXXMethodDecl {
     static CXXConstructorDecl dyn_cast(Decl decl) {
         return DeclCasting.INSTANCE.dyn_cast(decl, (CXXConstructorDecl) null);
     }
+
+    boolean isDefaultConstructor();
+    boolean isMoveConstructor();
+    boolean isCopyConstructor();
 }

@@ -120,6 +120,11 @@ public interface CXXRecordDecl extends RecordDecl {
     boolean isLambda();
     boolean isGenericLambda();
 
+    boolean isPolymorphic();
+    boolean isAbstract();
+
+    CXXDestructorDecl getDestructor();
+
     CXXRecordDecl getDefinition();
     CXXRecordDecl getCanonicalDecl();
     ClassTemplateDecl getDescribedClassTemplate();
