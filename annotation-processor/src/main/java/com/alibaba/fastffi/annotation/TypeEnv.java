@@ -260,7 +260,7 @@ public class TypeEnv {
         if (!funGen.name().equals(executableElement.getSimpleName().toString())) {
             return false;
         }
-        List<? extends VariableElement> parameters = executableElement.getParameters();
+        List<? extends TypeParameterElement> parameters = executableElement.getTypeParameters();
         String[] parameterTypes = funGen.parameterTypes();
         if (parameterTypes.length != parameters.size()) {
             return false;
