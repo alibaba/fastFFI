@@ -272,7 +272,7 @@ public class TypeEnv {
         if (!funGen.name().equals(executableElement.getSimpleName().toString())) {
             return false;
         }
-        List<? extends TypeParameterElement> parameters = executableElement.getTypeParameters();
+        List<? extends VariableElement> parameters = executableElement.getParameters();
         String[] parameterTypes = funGen.parameterTypes();
         if (parameterTypes.length != parameters.size()) {
             return false;
@@ -282,7 +282,7 @@ public class TypeEnv {
                 return false;
             }
         }
-        return getTypeName(executableElement.getReturnType()).equals(funGen.returnType());
+        return getTypeName(erasure(executableElement.getReturnType())).equals(funGen.returnType());
     }
 
     protected boolean isJavaLangVoid(TypeMirror type) {
