@@ -2624,10 +2624,14 @@ public class FFIBindingGenerator {
                 StringBuilder args = new StringBuilder();
                 TemplateArgumentList templateArgumentList = templateSpecializationDecl.getTemplateArgs();
                 for (int i = 0; i < templateArgumentList.size(); ++i) {
+                    TemplateArgument templateArgument = templateArgumentList.get(i);
+                    if (templateArgument.getKind() != TemplateArgument.ArgKind.Type) {
+                        throw unsupportedAST("TODO: cannot support non-type argument: " + templateArgument.getKind());
+                    }
                     if (i > 0) {
                         args.append(", ");
                     }
-                    args.append(getCXXNameInternal(templateArgumentList.get(i).getAsType(), false));
+                    args.append(getCXXNameInternal(templateArgument.getAsType(), false));
                 }
                 String name = classTemplateDecl.getName().toString();
                 return parentName + "::" + name + "<" + args + ">";
@@ -2772,11 +2776,14 @@ public class FFIBindingGenerator {
             String simpleName = simpleNames.remove(0);
 
             // Generate a unique name for each template instantiation type.
-            StringBuilder instantiation = new StringBuilder(namedDecl.getIdentifier().getName().toJavaString());
+            StringBuilder instantiation = new StringBuilder(capitalize(namedDecl.getIdentifier().getName().toJavaString()));
             ClassTemplateSpecializationDecl templateSpecializationDecl = ClassTemplateSpecializationDecl.dyn_cast(contextDecl);
             TemplateArgumentList templateArgumentList = templateSpecializationDecl.getTemplateArgs();
             for (int i = 0; i < templateArgumentList.size(); ++i) {
                 TemplateArgument templateArgument = templateArgumentList.get(i);
+                if (templateArgument.getKind() != TemplateArgument.ArgKind.Type) {
+                    throw unsupportedAST("TODO: cannot support non-type argument: " + templateArgument.getKind());
+                }
                 String argType = getCXXNameInternal(templateArgument.getAsType(), false);
                 instantiation.append(capitalize(argType));
             }
