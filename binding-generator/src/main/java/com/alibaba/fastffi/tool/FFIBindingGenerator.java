@@ -1732,6 +1732,9 @@ public class FFIBindingGenerator {
     }
 
     private TypeName getPointerOfPointer(TypeName pointeeTypeName) {
+        if (!(pointeeTypeName instanceof ClassName)) {
+            throw unsupportedAST("Unsupported type: " + pointeeTypeName);
+        }
         ClassName className = (ClassName) pointeeTypeName;
         String simpleName = className.simpleName();
         ClassName enclosingClassName = className.enclosingClassName();
@@ -2614,6 +2617,20 @@ public class FFIBindingGenerator {
                 return "";
             case ExternCContext:
                 return getCXXContextName(parentContext);
+            case ClassTemplateSpecialization:
+                String parentName = getCXXContextName(parentContext);
+                ClassTemplateSpecializationDecl templateSpecializationDecl = ClassTemplateSpecializationDecl.dyn_cast(contextDecl);
+                ClassTemplateDecl classTemplateDecl = templateSpecializationDecl.getSpecializedTemplate();
+                StringBuilder args = new StringBuilder();
+                TemplateArgumentList templateArgumentList = templateSpecializationDecl.getTemplateArgs();
+                for (int i = 0; i < templateArgumentList.size(); ++i) {
+                    if (i > 0) {
+                        args.append(", ");
+                    }
+                    args.append(getCXXNameInternal(templateArgumentList.get(i).getAsType(), false));
+                }
+                String name = classTemplateDecl.getName().toString();
+                return parentName + "::" + name + "<" + args + ">";
             default:
                 throw unsupportedAST("Not a supported DeclContext: " + contextDecl);
         }
@@ -2747,6 +2764,25 @@ public class FFIBindingGenerator {
             String simpleName = simpleNames.remove(0);
             simpleNames.add(namedDecl.getIdentifier().getName().toJavaString());
             return getClassName(packageName, simpleName, simpleNames.toArray(new String[0]));
+        } else if (contextKind == Decl.Kind.ClassTemplateSpecialization) {
+            TagDecl parentDecl = TagDecl.dyn_cast(contextDecl);
+            ClassName parentClassName = getJavaClassName(parentDecl);
+            String packageName = parentClassName.packageName();
+            List<String> simpleNames = new ArrayList<>(parentClassName.simpleNames());
+            String simpleName = simpleNames.remove(0);
+
+            // Generate a unique name for each template instantiation type.
+            StringBuilder instantiation = new StringBuilder(namedDecl.getIdentifier().getName().toJavaString());
+            ClassTemplateSpecializationDecl templateSpecializationDecl = ClassTemplateSpecializationDecl.dyn_cast(contextDecl);
+            TemplateArgumentList templateArgumentList = templateSpecializationDecl.getTemplateArgs();
+            for (int i = 0; i < templateArgumentList.size(); ++i) {
+                TemplateArgument templateArgument = templateArgumentList.get(i);
+                String argType = getCXXNameInternal(templateArgument.getAsType(), false);
+                instantiation.append(capitalize(argType));
+            }
+
+            simpleNames.add(instantiation.toString());
+            return getClassName(packageName, simpleName, simpleNames.toArray(new String[0]));
         } else {
             String packageName = getPackageName(context);
             String simpleName = namedDecl.getIdentifier().getName().toJavaString();
@@ -2793,6 +2829,36 @@ public class FFIBindingGenerator {
             return TypeSpec.enumBuilder(className).addModifiers(Modifier.PUBLIC, Modifier.STATIC);
         }
         throw unsupportedAST("Unsupported record: " + className);
+    }
+
+    /**
+     * See also StringUtils.capitalize.
+     */
+    private String capitalize(final String name) {
+        if (name == null) {
+            return name;
+        }
+        final int strLen = name.length();
+        if (strLen == 0) {
+            return name;
+        }
+
+        final int firstCodepoint = name.codePointAt(0);
+        final int newCodePoint = Character.toTitleCase(firstCodepoint);
+        if (firstCodepoint == newCodePoint) {
+            // already capitalized
+            return name;
+        }
+
+        final int[] newCodePoints = new int[strLen]; // cannot be longer than the char array
+        int outOffset = 0;
+        newCodePoints[outOffset++] = newCodePoint; // copy the first codepoint
+        for (int inOffset = Character.charCount(firstCodepoint); inOffset < strLen; ) {
+            final int codepoint = name.codePointAt(inOffset);
+            newCodePoints[outOffset++] = codepoint; // copy the remaining ones
+            inOffset += Character.charCount(codepoint);
+        }
+        return new String(newCodePoints, 0, outOffset);
     }
 
     static void dump(String indent, DeclContext context) {
