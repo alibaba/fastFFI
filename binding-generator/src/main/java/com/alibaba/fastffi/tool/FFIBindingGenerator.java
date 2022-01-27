@@ -72,6 +72,7 @@ import com.alibaba.fastffi.clang.RValueReferenceType;
 import com.alibaba.fastffi.clang.RecordDecl;
 import com.alibaba.fastffi.clang.RecordType;
 import com.alibaba.fastffi.clang.ReferenceType;
+import com.alibaba.fastffi.clang.SubstTemplateTypeParmType;
 import com.alibaba.fastffi.clang.TagDecl;
 import com.alibaba.fastffi.clang.TemplateArgument;
 import com.alibaba.fastffi.clang.TemplateArgumentList;
@@ -735,6 +736,9 @@ public class FFIBindingGenerator {
                 return isJavaDeclarable(TypedefType.dyn_cast(type).getDecl().getUnderlyingType().getTypePtr());
             case Elaborated:
                 return isJavaDeclarable(ElaboratedType.dyn_cast(type).desugar().getTypePtr());
+            case DependentName:
+            case SubstTemplateTypeParm:
+                return true;
         }
         return false;
     }
@@ -833,6 +837,7 @@ public class FFIBindingGenerator {
         }
 
         try {
+            // If the underlying type is not supported, we just skip generating the `get()` method.
             FFIType underlyingFFIType = typeToFFIType(typedefNameDecl.getUnderlyingType());
             if (underlyingFFIType.isVoid()) {
                 throw unsupportedAST("TODO: alias of void is not supported.");
@@ -856,14 +861,11 @@ public class FFIBindingGenerator {
                 getter.addAnnotation(ffiExpr("{0}"));
             }
             typeGen.builder.addMethod(getter.build());
-            typeGen.builder.addSuperinterface(CXXPointer.class);
         } catch (UnsupportedASTException e) {
-            if (debug) {
-                e.printStackTrace();
-            }
-            typeGen.fail(e.toString());
-            return true; // return true since we have made some changes to the global state.
         }
+
+        // the typedef type is a CXXPointer
+        typeGen.builder.addSuperinterface(CXXPointer.class);
 
         // mark succ
         addCXXHeader(typeGen);
@@ -1615,11 +1617,15 @@ public class FFIBindingGenerator {
             case DependentName: {
                 return getJavaTypeForDependentNameType((DependentNameType) type);
             }
+            case SubstTemplateTypeParm: {
+                return getJavaTypeForSubstTemplateTypeParmType((SubstTemplateTypeParmType) type);
+            }
             case Elaborated: {
                 return getJavaTypeForElaboratedType((ElaboratedType) type);
             }
-            default:
-                throw unsupportedAST("Unsupported type: " + type);
+            default: {
+                throw unsupportedAST("Unsupported type: " + typeClass + ", " + type);
+            }
         }
     }
 
@@ -1652,6 +1658,10 @@ public class FFIBindingGenerator {
         throw unsupportedAST("Unsupported dependent name type: " + type);
     }
 
+    private TypeName getJavaTypeForSubstTemplateTypeParmType(SubstTemplateTypeParmType type) {
+        throw unsupportedAST("Unsupported subst template type param type: " + type);
+    }
+
     /**
      * <ul>
      *     <li>If the typedef is defined from a primitve, then use the primitive type name</li>
@@ -1667,8 +1677,17 @@ public class FFIBindingGenerator {
         TypedefNameDecl typedefNameDecl = type.getDecl();
         QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
         Type underlyingType = underlyingQualType.getTypePtr();
-        // make sure underlying FFI type is verified.
-        FFIType underlyingFFIType = typeToFFIType(underlyingQualType);
+        FFIType underlyingFFIType;
+        try {
+            underlyingFFIType = typeToFFIType(underlyingQualType);
+        } catch (UnsupportedASTException e) {
+            if (debug) {
+                System.err.println("WARNING: the unerlying type is not supported: " + e.getMessage());
+            }
+            // If the underlying type is not supported, e.g., dependent name type,
+            // we generate a place holder for the typedef alias
+            underlyingFFIType = new FFIType(underlyingQualType, getJavaClassName(typedefNameDecl));
+        }
         if (isJavaDeclarable(underlyingType)) {
             return getJavaClassName(typedefNameDecl);
         }
@@ -1676,7 +1695,8 @@ public class FFIBindingGenerator {
         if (underlyingFFIType.isTemplateVariableDependent()) {
             return underlyingFFIType.javaType;
         }
-        throw unsupportedAST("Unsupported TypedefType: " + type);
+        String declName = type.getDecl().getDeclName().getAsString().toJavaString();
+        throw unsupportedAST("Unsupported TypedefType: " + declName);
     }
 
     /**
@@ -2691,9 +2711,12 @@ public class FFIBindingGenerator {
                     case RValueReference:
                     case Elaborated:
                     case TemplateSpecialization:
+                    case DependentName:
+                    case SubstTemplateTypeParm:
                         return getCXXName(typedefNameDecl);
-                    default:
-                        throw unsupportedAST("Unsupported typedef type: " + type);
+                    default: {
+                        throw unsupportedAST("Unsupported typedef type: " + typeClass + ", underlying " + underlyingClass);
+                    }
                 }
             }
             case Enum: {
