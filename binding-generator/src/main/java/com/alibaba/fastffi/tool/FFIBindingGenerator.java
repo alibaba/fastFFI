@@ -71,6 +71,7 @@ import com.alibaba.fastffi.clang.QualType;
 import com.alibaba.fastffi.clang.RValueReferenceType;
 import com.alibaba.fastffi.clang.RecordDecl;
 import com.alibaba.fastffi.clang.RecordType;
+import com.alibaba.fastffi.clang.RefQualifierKind;
 import com.alibaba.fastffi.clang.ReferenceType;
 import com.alibaba.fastffi.clang.SubstTemplateTypeParmType;
 import com.alibaba.fastffi.clang.TagDecl;
@@ -1147,7 +1148,7 @@ public class FFIBindingGenerator {
                 break;
             }
             default:
-                if (debug) System.out.println("WARNING: ignore type " + typeClass);
+                if (debug) System.err.println("WARNING: ignore type " + typeClass);
                 break;
         }
     }
@@ -1841,7 +1842,7 @@ public class FFIBindingGenerator {
                 for (int i = 0; i < templateArgumentList.size(); i++) {
                     TemplateArgument templateArgument = templateArgumentList.get(i);
                     if (templateArgument.getKind() != TemplateArgument.ArgKind.Type) {
-                        throw unsupportedAST("TODO: cannot support non-type argument");
+                        throw unsupportedAST("TODO: cannot support non-type argument: " + templateArgument.getKind());
                     }
                     verifyDecl(templateArgument.getAsType().getTypePtr());
                 }
@@ -2380,6 +2381,14 @@ public class FFIBindingGenerator {
                         continue;
                     }
                     if (methodDecl.getDeclKind() == Decl.Kind.CXXConversion) {
+                        continue;
+                    }
+                    if (methodDecl.getRefQualifier() == RefQualifierKind.RValue) {
+                        // rvalue ref qualifier is not supported
+                        if (debug) {
+                            System.err.println("WARNING: the rvalue ref qualifier on method is not supported: "
+                                    + methodDecl.getNameAsString().toJavaString());
+                        }
                         continue;
                     }
                     if (methodDecl.isStatic()) {

@@ -35,4 +35,5 @@ public interface CXXMethodDecl extends FunctionDecl {
     boolean isLambdaStaticInvoker();
 
     @CXXValue Qualifiers getMethodQualifiers();
+    RefQualifierKind getRefQualifier();
 }
