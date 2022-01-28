@@ -59,6 +59,7 @@ import com.alibaba.fastffi.clang.FieldDecl;
 import com.alibaba.fastffi.clang.FunctionDecl;
 import com.alibaba.fastffi.clang.HeaderSearch;
 import com.alibaba.fastffi.clang.IdentifierInfo;
+import com.alibaba.fastffi.clang.InjectedClassNameType;
 import com.alibaba.fastffi.clang.LValueReferenceType;
 import com.alibaba.fastffi.clang.NamedDecl;
 import com.alibaba.fastffi.clang.NamespaceDecl;
@@ -1007,9 +1008,8 @@ public class FFIBindingGenerator {
                 return processPointerOrReference(ffiType);
             }
             if (ffiType.isValue()) {
-                boolean ret = generateValue(ffiType);
                 checkTemplateInstantiation(ffiType);
-                return ret;
+                return generateValue(ffiType);
             }
             return false;
         } catch (UnsupportedASTException e) {
@@ -1643,6 +1643,9 @@ public class FFIBindingGenerator {
             case Elaborated: {
                 return getJavaTypeForElaboratedType((ElaboratedType) type);
             }
+            case InjectedClassName: {
+                return getJavaTypeForInjectedClassNameType((InjectedClassNameType) type);
+            }
             default: {
                 throw unsupportedAST("Unsupported type: " + typeClass + ", " + type);
             }
@@ -1680,6 +1683,10 @@ public class FFIBindingGenerator {
 
     private TypeName getJavaTypeForSubstTemplateTypeParmType(SubstTemplateTypeParmType type) {
         throw unsupportedAST("Unsupported subst template type param type: " + type);
+    }
+
+    public TypeName getJavaTypeForInjectedClassNameType(InjectedClassNameType type) {
+        return getJavaClassName(type.getDecl());
     }
 
     /**
@@ -2786,6 +2793,10 @@ public class FFIBindingGenerator {
                     sb.append(">");
                 }
                 return sb.toString();
+            }
+            case TemplateTypeParm: {
+                TemplateTypeParmType templateTypeParmType = TemplateTypeParmType.dyn_cast(type);
+                return templateTypeParmType.getIdentifier().getName().toJavaString();
             }
             default:
                 throw unsupportedAST("Unsupported CXX type: " + type);
