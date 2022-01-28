@@ -57,6 +57,9 @@ public interface Decl extends FFIPointer {
     @CXXValue SourceLocation getEndLoc();
     @CXXValue SourceLocation getLocation();
 
+    boolean hasAttrs();
+    @CXXReference AttrVec getAttrs();
+
     @FFITypeAlias("clang::Decl::Kind")
     @FFITypeRefiner("com.alibaba.fastffi.clang.Decl.Kind.get")
     enum Kind implements CXXEnum {

@@ -24,6 +24,7 @@ import com.alibaba.fastffi.FFIStringProvider;
 import com.alibaba.fastffi.FFIStringReceiver;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
+import com.alibaba.fastffi.llvm.CharPointer;
 import com.alibaba.fastffi.llvm.LLVMPointer;
 
 @FFIGen
@@ -31,6 +32,15 @@ import com.alibaba.fastffi.llvm.LLVMPointer;
 @FFITypeAlias("std::string")
 public interface StdString extends LLVMPointer, CXXPointer, FFIStringReceiver, FFIStringProvider {
 
+    static StdString create() {
+        return factory.create();
+    }
+    static StdString create(CharPointer buf) {
+        return factory.create(buf);
+    }
+    static StdString create(CharPointer buf, long length) {
+        return factory.create(buf, length);
+    }
     static StdString create(String string) {
         return factory.create(string);
     }
@@ -40,6 +50,8 @@ public interface StdString extends LLVMPointer, CXXPointer, FFIStringReceiver, F
     @FFIFactory
     interface Factory {
         StdString create();
+        StdString create(CharPointer buf);
+        StdString create(CharPointer buf, long length);
         default StdString create(String string) {
             StdString std = create();
             std.fromJavaString(string);
