@@ -270,6 +270,10 @@ public class FFIBindingGenerator {
                         additional.add(input[j]);
                     }
                     break;
+                case "--debug": {
+                    debug = true;
+                    continue;
+                }
                 case "--search-directory": {
                     String directory = nextOperand(input, i++, cur);
                     searchDirectory.add(directory);
@@ -391,9 +395,14 @@ public class FFIBindingGenerator {
      * @param args
      */
     public static void main(String[] args) throws IOException {
+        Logger.initialize(Logger.Level.INFO);
         try (COptions options = new COptions(processCommandLines(args));
                 MemoryHelper memoryHelper = new MemoryHelper();
                 CXXValueScope scope = new CXXValueScope()) {
+            if (debug) {
+                Logger.initialize(Logger.Level.DEBUG);
+            }
+
             StdString categoryName = StdString.create("FFIBindingGenerator");
             StdString categoryDesc = StdString.create("A tool that generates bindings for fastFFI");
             memoryHelper.add(categoryName);
@@ -495,7 +504,7 @@ public class FFIBindingGenerator {
         }
 
         void fail(String reason) {
-            if (debug) System.out.format("Mark failed: %s@%d, reason=%s\n", className, hashCode(), reason);
+            Logger.info("Mark failed: %s@%d, reason=%s", className, hashCode(), reason);
             if (status != Status.None) {
                 throw new IllegalStateException("Oops, expected None, got " + status);
             }
@@ -503,7 +512,7 @@ public class FFIBindingGenerator {
         }
 
         void succ() {
-            if (debug) System.out.format("Mark successful: %s@%d\n", className, hashCode());
+            Logger.info("Mark successful: %s@%d", className, hashCode());
             if (status != Status.None) {
                 throw new IllegalStateException("Oops, expected None, got " + status);
             }
@@ -511,7 +520,7 @@ public class FFIBindingGenerator {
         }
 
         void build(Path output) throws IOException {
-            if (debug) System.out.format("Build %s@%d\n", className, hashCode());
+            Logger.info("Build %s@%d", className, hashCode());
             if (!isSucc()) {
                 throw new IllegalStateException("Oops, expected Succ, got " + status);
             }
@@ -530,7 +539,9 @@ public class FFIBindingGenerator {
             if (getEnclosingTypeGen() == null) {
                 JavaFile javaFile = JavaFile.builder(className.packageName(), typeSpec)
                         .build();
-                if (debug) System.out.println(javaFile);
+                if (debug) {
+                    System.out.println(javaFile);
+                }
                 javaFile.writeTo(output);
             }
         }
@@ -990,7 +1001,7 @@ public class FFIBindingGenerator {
     }
 
     boolean process(FFIType ffiType) {
-        System.out.println("Processing " + ffiType);
+        Logger.debug("Processing %s", ffiType);
         try {
             if (ffiType.isPointer() || ffiType.isReference()) {
                 return processPointerOrReference(ffiType);
@@ -1023,12 +1034,15 @@ public class FFIBindingGenerator {
                         throw unsupportedAST("TODO: no template variable in instantiated templates");
                     }
                 });
-                if (debug) {
-                    System.out.println("Add template: " + ffiType.javaType);
-                }
+                Logger.info("Add template: %s", ffiType.javaType);
                 ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) ffiType.javaType;
                 addToMapSet(baseClassToFFIType, parameterizedTypeName.rawType, ffiType);
-            } catch (UnsupportedASTException e) {}
+            } catch (UnsupportedASTException e) {
+                Logger.error("Failed to check the template instantiation: %s, %s", ffiType, e.getMessage());
+                if (debug) {
+                    e.printStackTrace();
+                }
+            }
         } // else may be sugared type
     }
 
@@ -1148,7 +1162,7 @@ public class FFIBindingGenerator {
                 break;
             }
             default:
-                if (debug) System.err.println("WARNING: ignore type " + typeClass);
+                Logger.warn("WARNING: ignore type %s", typeClass);
                 break;
         }
     }
@@ -1285,7 +1299,10 @@ public class FFIBindingGenerator {
                     generate(decl);
                 }
             } catch (UnsupportedASTException e) {
-                e.printStackTrace();
+                Logger.error("Failed to generate for declaration in translation unit, %s", e.getMessage());
+                if (debug) {
+                    e.printStackTrace();
+                }
             }
         }
     }
@@ -1334,7 +1351,9 @@ public class FFIBindingGenerator {
                 }
             }
         } catch (UnsupportedASTException e) {
-            if (debug) e.printStackTrace();
+            if (debug) {
+                e.printStackTrace();
+            }
             if (typeGen != null) {
                 typeGen.fail(e.toString());
             }
@@ -1358,7 +1377,7 @@ public class FFIBindingGenerator {
                     tagDecl = (TagDecl) DeclTypeRefiner.refine(tagDecl.getDefinition());
                 }
                 if (tagDecl == null) {
-                    if (debug) System.err.println("WARNING: no definition for declaration " + ((TagDecl) decl).getNameAsString());
+                    Logger.warn("no definition for declaration %s", ((TagDecl) decl).getNameAsString());
                     return null; // e.g., forward declaration
                 }
                 if (tagDecl.getIdentifier() == null) {
@@ -1682,9 +1701,7 @@ public class FFIBindingGenerator {
         try {
             underlyingFFIType = typeToFFIType(underlyingQualType);
         } catch (UnsupportedASTException e) {
-            if (debug) {
-                System.err.println("WARNING: the unerlying type is not supported: " + e.getMessage());
-            }
+            Logger.warn("the unerlying type is not supported: %s", e.getMessage());
             // If the underlying type is not supported, e.g., dependent name type,
             // we generate a place holder for the typedef alias
             underlyingFFIType = new FFIType(underlyingQualType, getJavaClassName(typedefNameDecl));
@@ -2385,10 +2402,8 @@ public class FFIBindingGenerator {
                     }
                     if (methodDecl.getRefQualifier() == RefQualifierKind.RValue) {
                         // rvalue ref qualifier is not supported
-                        if (debug) {
-                            System.err.println("WARNING: the rvalue ref qualifier on method is not supported: "
-                                    + methodDecl.getNameAsString().toJavaString());
-                        }
+                        Logger.warn("the rvalue ref qualifier on method is not supported: %s",
+                                methodDecl.getNameAsString().toJavaString());
                         continue;
                     }
                     if (methodDecl.isStatic()) {
@@ -2418,7 +2433,13 @@ public class FFIBindingGenerator {
                         continue;
                     }
                     classBuilder.addMethod(methodSpec);
-                } catch (UnsupportedASTException e) {}
+                } catch (UnsupportedASTException e) {
+                    Logger.error("Failed to generate for method %s::%s, %s",
+                            className.canonicalName(), begin.get().getNameAsString(), e.getMessage());
+                    if (debug) {
+                        e.printStackTrace();
+                    }
+                }
             }
             if (!staticMethods.isEmpty()) {
                 String cxxName = getCXXName(cxxRecordDecl);
