@@ -258,6 +258,9 @@ public class FFIBindingGenerator {
     static List<Pattern> methodExcludes;
     static List<Pattern> classExcludes;
 
+    // forward declaration is common in C++
+    static Map<String, List<String>> fwdHeaders;
+
     static String[] processCommandLines(String[] input) {
         int i = 0;
         List<String> searchDirectory = new ArrayList<>();
@@ -292,6 +295,15 @@ public class FFIBindingGenerator {
                 }
                 case "--exclude": {
                     addExclude(nextOperand(input, i++, cur));
+                    continue;
+                }
+                case "--forward-headers-file": {
+                    Path forwardHeadersFile = Paths.get(nextOperand(input, i++, cur));
+                    addForwardHeaders(forwardHeadersFile);
+                    continue;
+                }
+                case "--forward-header": {
+                    addForwardHeader(nextOperand(input, i++, cur));
                     continue;
                 }
                 case "--output-directory": {
@@ -339,7 +351,7 @@ public class FFIBindingGenerator {
     static void addExcludes(Path excludesFile) {
         try (BufferedReader reader = Files.newBufferedReader(excludesFile)) {
             String line;
-            while ((line = reader.readLine()) != null) {
+            while ((line = reader.readLine()) != null && !line.isEmpty()) {
                 addExclude(line);
             }
         } catch (IOException e) {
@@ -388,6 +400,33 @@ public class FFIBindingGenerator {
             }
         }
         return false;
+    }
+
+    static void addForwardHeaders(Path fwdHeadersFile) {
+        try (BufferedReader reader = Files.newBufferedReader(fwdHeadersFile)) {
+            String line;
+            while ((line = reader.readLine()) != null && !line.isEmpty()) {
+                addForwardHeader(line);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new IllegalStateException("Cannot read excludes file: " + fwdHeadersFile);
+        }
+    }
+
+    static void addForwardHeader(String line) {
+        String[] args = line.split("=");
+        if (args.length != 2) {
+            throw new IllegalArgumentException("Expects a <class>=<header> pair for forward headers");
+        }
+        if (fwdHeaders == null) {
+            fwdHeaders = new HashMap<>();
+        }
+        if (fwdHeaders.containsKey(args[0])) {
+            fwdHeaders.get(args[0]).add(args[1]);
+        } else {
+            fwdHeaders.put(args[0], Arrays.asList(args[1]));
+        }
     }
 
     /**
@@ -1446,6 +1485,10 @@ public class FFIBindingGenerator {
         if (annotationSpec != null) {
             typeGen.addHeader(annotationSpec);
         }
+        AnnotationSpec annotationSpecFwd = createForwardHeaders(typeGen.className);
+        if (annotationSpecFwd != null) {
+            typeGen.addHeader(annotationSpecFwd);
+        }
     }
 
     private AnnotationSpec createCXXHeader(Type type) {
@@ -1496,6 +1539,25 @@ public class FFIBindingGenerator {
         return AnnotationSpec.builder(CXXHead.class)
                 .addMember(key, "$S", entry.getIncludePath(fileName))
                 .build();
+    }
+
+    private AnnotationSpec createForwardHeaders(ClassName className) {
+        String key = className.canonicalName();
+        List<String> headers = fwdHeaders.get(key);
+        if (headers == null) {
+            return null;
+        }
+        AnnotationSpec.Builder builder = AnnotationSpec.builder(CXXHead.class);
+        for (String header: headers) {
+            if (header.charAt(0) == '<' && header.charAt(header.length()-1) == '>') {
+                builder.addMember("system", "$S", header.substring(1, header.length() - 1));
+            } else if (header.charAt(0) == '"' && header.charAt(header.length()-1) == '"') {
+                builder.addMember("value", "$S", header.substring(1, header.length() - 1));
+            } else {
+                builder.addMember("value", "$S", header);
+            }
+        }
+        return builder.build();
     }
 
     private void checkDeclContext(TypeGen typeGen) {
