@@ -1686,7 +1686,19 @@ public class FFIBindingGenerator {
     }
 
     public TypeName getJavaTypeForInjectedClassNameType(InjectedClassNameType type) {
-        return getJavaClassName(type.getDecl());
+        CXXRecordDecl decl = type.getDecl();
+        ClassTemplateDecl templateDecl = decl.getDescribedClassTemplate();
+        ClassName className = getJavaClassName(decl);
+        TypeName typeName = className;
+        if (templateDecl != null) {
+            TemplateParameterList templateParameterList = templateDecl.getTemplateParameters();
+            List<TemplateTypeParmDecl> templateTypeParmDeclList = collectTypeParameters(templateParameterList);
+            if (!templateTypeParmDeclList.isEmpty()) {
+                typeName = ParameterizedTypeName.get(className, templateTypeParmDeclList.stream().map(typeParmDecl ->
+                        TypeVariableName.get(typeParmDecl.getIdentifier().getName().toJavaString())).toArray(TypeName[]::new));
+            }
+        }
+        return typeName;
     }
 
     /**
