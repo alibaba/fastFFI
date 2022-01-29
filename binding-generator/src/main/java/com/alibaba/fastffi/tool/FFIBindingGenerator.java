@@ -2869,8 +2869,9 @@ public class FFIBindingGenerator {
                 return sb.toString();
             }
             case TemplateTypeParm: {
-                TemplateTypeParmType templateTypeParmType = TemplateTypeParmType.dyn_cast(type);
-                return templateTypeParmType.getIdentifier().getName().toJavaString();
+                // TemplateTypeParmType templateTypeParmType = TemplateTypeParmType.dyn_cast(type);
+                // return templateTypeParmType.getIdentifier().getName().toJavaString();
+                throw unsupportedAST("TODO: template type param is not supported for template instantiation");
             }
             default:
                 throw unsupportedAST("Unsupported CXX type: " + type);
