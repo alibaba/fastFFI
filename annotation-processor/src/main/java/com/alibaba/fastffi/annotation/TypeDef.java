@@ -30,6 +30,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import java.util.Arrays;
+import java.util.IllegalFormatException;
 
 import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.extractPackageName;
 import static com.alibaba.fastffi.annotation.AnnotationProcessorUtils.typeNameToDeclaredType;
@@ -262,13 +263,24 @@ public class TypeDef {
     }
 
     private String computeCXXFullName() {
+        String baseTypeName = getCXXBaseTypeName();
         if (template == null) {
-            return getCXXBaseTypeName();
+            return baseTypeName;
         }
         if (!template.cxxFull().isEmpty()) {
-            return getCXXBaseTypeName() + "<" + template.cxxFull() + ">";
+            return baseTypeName + "<" + template.cxxFull() + ">";
         }
-        return getCXXBaseTypeName() + "<" + String.join(",", template.cxx()) + ">";
+        if (baseTypeName.contains("%")) {
+            try {
+                return String.format(baseTypeName, Arrays.stream(template.cxx()).toArray());
+            } catch (IllegalFormatException e) {
+                throw new IllegalArgumentException("Cannot format cxx typename with \n" +
+                        "\tformat: '" + baseTypeName + "'\n" +
+                        "\targuments: (" + String.join(", ", template.cxx()) + ")\n" +
+                        "with error: " + e);
+            }
+        }
+        return baseTypeName + "<" + String.join(",", template.cxx()) + ">";
     }
 
     public String getSuffixForGeneratedName() {
