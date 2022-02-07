@@ -67,6 +67,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IllegalFormatException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -1080,9 +1081,20 @@ public class TypeEnv {
                 throw new IllegalStateException("Unsupported type: " + typeArg);
             }
         }
-
-        String cxx = ffiRawType + "<" + Arrays.stream(newTypeMapping).map(typeMapping -> typeMapping.cxx).collect(
-            Collectors.joining(",")) + ">";
+        String cxx = null;
+        String[] parameters = Arrays.stream(newTypeMapping).map(typeMapping -> typeMapping.cxx).toArray(String[]::new);
+        if (ffiRawType.contains("%")) {
+            try {
+                cxx = String.format(ffiRawType, Arrays.stream(parameters).toArray());
+            } catch (IllegalFormatException e) {
+                throw new IllegalArgumentException("Cannot format cxx typename with \n" +
+                        "\tformat: '" + ffiRawType + "'\n" +
+                        "\targuments: (" + String.join(", ", parameters) + ")\n" +
+                        "with error: " + e);
+            }
+        } else {
+            cxx = ffiRawType + "<" + String.join(",", parameters) + ">";
+        }
         TypeMirror java = typeUtils().getDeclaredType(typeElement, Arrays.stream(newTypeMapping).map(typeMapping -> typeMapping.java).toArray(TypeMirror[]::new));
         return new TypeMapping(cxx, java);
     }

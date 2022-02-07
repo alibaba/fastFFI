@@ -19,7 +19,6 @@ import com.google.testing.compile.Compilation;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.regex.Pattern;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static org.junit.Assert.assertFalse;
@@ -39,6 +38,23 @@ public class TestFFITypeAlias
             String content = readJavaCode(compilation, "jni_samples_FFITypeAliasSample_Inner_cxx_0x29f7575b.cc");
             assertTrue(content.contains("FFITypeAliasSample<bool>::Inner<uint32_t>"));
             assertFalse(content.contains("FFITypeAliasSample::Inner<bool, uint32_t>"));
+        }
+        {
+            String content = readJavaCode(compilation, "jni_samples_FFITypeAliasSample2_cxx_0x1d1e7d2c.cc");
+            assertTrue(content.contains("FFITypeAliasSample2<double>"));
+        }
+        {
+            String content = readJavaCode(compilation, "jni_samples_FFITypeAliasSample2_ArrayType2_cxx_0xd473eb.cc");
+            assertTrue(content.contains("FFITypeAliasSample2<double>::ArrayType2"));
+            assertFalse(content.contains("FFITypeAliasSample2::ArrayType2<double>"));
+        }
+        {
+            String content = readJavaCode(compilation, "jni_samples_shared_ptr_cxx_0xb705fdd4.cc");
+            assertTrue(content.contains("std::shared_ptr<int>"));
+        }
+        {
+            String content = readJavaCode(compilation, "jni_samples_shared_ptr_element_type_cxx_0xdfc088b1.cc");
+            assertTrue(content.contains("std::shared_ptr<int>::element_type"));
         }
     }
 }
