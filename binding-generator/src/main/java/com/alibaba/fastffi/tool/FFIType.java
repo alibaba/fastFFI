@@ -315,4 +315,10 @@ public class FFIType {
     public boolean isPrimitive() {
         return javaType.isPrimitive();
     }
+
+    public boolean isConst() {
+        // The word "local" means, this particular QualType instance has the "const" qualifier
+        // set, without looking through typedefs that may have added "const" at a different level.
+        return cxxQualType.isLocalConstQualified();
+    }
 }

@@ -25,6 +25,7 @@ import com.alibaba.fastffi.CXXSuperTemplate;
 import com.alibaba.fastffi.CXXTemplate;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.CXXValueScope;
+import com.alibaba.fastffi.FFIConst;
 import com.alibaba.fastffi.FFIExpr;
 import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
@@ -2234,6 +2235,9 @@ public class FFIBindingGenerator {
                 javaType = aliased;
             }
             ParameterSpec.Builder paramBuilder = ParameterSpec.builder(javaType, parmName);
+            if (ffiType.isConst()) {
+                paramBuilder.addAnnotation(FFIConst.class);
+            }
             if (!enumAsInteger && ffiType.isEnum()) {
                 paramBuilder.addAnnotation(CXXValue.class);
             } else if (ffiType.isReference()) {
@@ -2424,6 +2428,7 @@ public class FFIBindingGenerator {
         classBuilder.addSuperinterface(superFFIType.javaType);
         // disable the super template, see GH-23
         // addSuperTemplate(classBuilder, superFFIType);
+        Logger.warn("TODO: @CXXSuperTemplate doesn't work");
     }
 
     List<TemplateTypeParmDecl> collectTypeParameters(TemplateParameterList templateParameterList) {
