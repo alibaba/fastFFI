@@ -642,32 +642,13 @@ public class FFIBindingGenerator {
 
     Map<FFIType, FFIType> ffiTypeDictionary = new HashMap<>();
 
-    Map<ClassName, Set<FFIType>> baseClassToFFIType = new HashMap<>();
+    TemplateFactory templateFactory = new TemplateFactory();
 
     HeaderManager headerManager = null;
 
     FFIBindingGenerator(StdVectorLite<UniquePtr<ASTUnit>> astUnits) {
         this.astUnits = astUnits;
         this.classBuilderMap = new HashMap<>();
-    }
-
-    static <K,V> boolean addToMapSet(Map<K, Set<V>> map, K key, V value) {
-        Set<V> values = map.get(key);
-        if (values == null) {
-            values = Collections.singleton(value);
-            map.put(key, values);
-            return true;
-        } else if (values.size() == 1) {
-            if (values.contains(value)) {
-                return false;
-            }
-            values = new HashSet<>(values);
-            map.put(key, values);
-            values.add(value);
-            return true;
-        } else {
-            return values.add(value);
-        }
     }
 
     static void dump(StdVectorLite<UniquePtr<ASTUnit>> results) {
@@ -1077,14 +1058,14 @@ public class FFIBindingGenerator {
                     // do sanity check first
                     getCXXName(argType);
                     FFIType argFFIType = typeToFFIType(argType);
-                    if (argFFIType.isTemplateVariableDependent()) {
+                    if (argFFIType.hasTypeVariable()) {
                         // no template variable in template is allowed
                         throw unsupportedAST("TODO: no template variable in instantiated templates");
                     }
                 });
                 Logger.info("Add template: %s", ffiType.javaType);
                 ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) ffiType.javaType;
-                addToMapSet(baseClassToFFIType, parameterizedTypeName.rawType, ffiType);
+                templateFactory.add(parameterizedTypeName.rawType, ffiType);
             } catch (UnsupportedASTException e) {
                 Logger.error("Failed to check the template instantiation: %s, %s", ffiType, e.getMessage());
                 if (debug) {
@@ -1235,12 +1216,12 @@ public class FFIBindingGenerator {
     }
 
     private void instantiateTemplates() throws IOException {
-        if (baseClassToFFIType.isEmpty()) {
+        if (templateFactory.isEmpty()) {
             return;
         }
         TypeSpec.Builder builder = TypeSpec.interfaceBuilder("Templates");
         AnnotationSpec.Builder ffiBatchGen = AnnotationSpec.builder(FFIGenBatch.class);
-        for (Map.Entry<ClassName, Set<FFIType>> entry : baseClassToFFIType.entrySet()) {
+        for (Map.Entry<ClassName, Set<FFIType>> entry : templateFactory.getTemplates().entrySet()) {
             ClassName base = entry.getKey();
             TypeGen typeGen = getTypeGen(base);
             if (typeGen == null || !typeGen.isSucc()) {

@@ -51,6 +51,9 @@ public class FFIType {
     final Type cxxType;
     final TypeName javaType;
 
+    // cache the string representation to avoid repeated computation.
+    final String cxxTypeString;
+
     private boolean requirePointer;
     private boolean verified;
 
@@ -59,12 +62,12 @@ public class FFIType {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         FFIType ffiType = (FFIType) o;
-        return Objects.equals(cxxType, ffiType.cxxType) && Objects.equals(javaType, ffiType.javaType);
+        return Objects.equals(cxxTypeString, ffiType.cxxTypeString) && Objects.equals(javaType, ffiType.javaType);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(cxxType, javaType);
+        return Objects.hash(cxxTypeString, javaType);
     }
 
     String javaAnnotation() {
@@ -78,12 +81,13 @@ public class FFIType {
     }
 
     public String toString() {
-        return String.format("<%s, %s%s>", cxxQualType.getAsString(), javaAnnotation(), javaType);
+        return String.format("<%s, %s%s>", cxxTypeString, javaAnnotation(), javaType);
     }
 
     public FFIType(QualType cxxType, TypeName javaType) {
         this.cxxQualType = cxxType;
         this.cxxType = cxxType.getTypePtr();
+        this.cxxTypeString = cxxQualType.getAsString().toJavaString();
         this.javaType = javaType;
         sanityCheck();
     }
@@ -140,6 +144,10 @@ public class FFIType {
         }
         BuiltinType builtinType = BuiltinType.dyn_cast(type);
         return builtinType.getKind() == BuiltinType.Kind.Void;
+    }
+
+    boolean hasTypeVariable() {
+        return hasTypeVariable(this.javaType);
     }
 
     boolean hasTypeVariable(TypeName typeName) {
