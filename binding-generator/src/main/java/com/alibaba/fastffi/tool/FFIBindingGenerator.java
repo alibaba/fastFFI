@@ -2383,7 +2383,8 @@ public class FFIBindingGenerator {
 
     private void addSuperinterface(TypeSpec.Builder classBuilder, FFIType superFFIType) {
         classBuilder.addSuperinterface(superFFIType.javaType);
-        addSuperTemplate(classBuilder, superFFIType);
+        // disable the super template, see GH-23
+        // addSuperTemplate(classBuilder, superFFIType);
     }
 
     List<TemplateTypeParmDecl> collectTypeParameters(TemplateParameterList templateParameterList) {
