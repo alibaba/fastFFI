@@ -31,7 +31,8 @@ public class Logger
         ERROR,
         WARN,
         INFO,
-        DEBUG;
+        DEBUG,
+        VERBOSE;
     }
 
     private static Level level = Level.ERROR;
@@ -60,6 +61,10 @@ public class Logger
         return level.ordinal() >= Level.DEBUG.ordinal();
     }
 
+    public static boolean verbose() {
+        return level.ordinal() >= Level.VERBOSE.ordinal();
+    }
+
     public static void info(String format, Object... args) {
         if (info()) {
             System.err.format("[INFO] " + format + "\n", args);
@@ -81,6 +86,12 @@ public class Logger
     public static void debug(String format, Object... args) {
         if (debug()) {
             System.err.format("[DEBUG] " + format + "\n", args);
+        }
+    }
+
+    public static void verbose(String format, Object... args) {
+        if (verbose()) {
+            System.err.format("[VERBOSE] " + format + "\n", args);
         }
     }
 }

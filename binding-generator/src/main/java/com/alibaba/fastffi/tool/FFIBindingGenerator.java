@@ -790,6 +790,7 @@ public class FFIBindingGenerator {
                 return isJavaDeclarable(ElaboratedType.dyn_cast(type).desugar().getTypePtr());
             case DependentName:
             case SubstTemplateTypeParm:
+            case TemplateTypeParm:
                 return true;
         }
         return false;
@@ -914,10 +915,16 @@ public class FFIBindingGenerator {
             }
             typeGen.builder.addMethod(getter.build());
         } catch (UnsupportedASTException e) {
+            // no `get()` is ok for interfaces
         }
 
         // the typedef type is a CXXPointer
         typeGen.builder.addSuperinterface(CXXPointer.class);
+
+        // add type variables
+        for (TypeVariableName tv: getJavaTypeVariablesInContext(typedefNameDecl.getDeclContext())) {
+            typeGen.builder.addTypeVariable(tv);
+        }
 
         // mark succ
         addCXXHeader(typeGen);
@@ -1749,16 +1756,13 @@ public class FFIBindingGenerator {
 
     public TypeName getJavaTypeForInjectedClassNameType(InjectedClassNameType type) {
         CXXRecordDecl decl = type.getDecl();
-        ClassTemplateDecl templateDecl = decl.getDescribedClassTemplate();
+        List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(decl.getDeclContext());
+        getJavaTypeVariablesOnDecl(decl, typeVariableNameList);
+
         ClassName className = getJavaClassName(decl);
         TypeName typeName = className;
-        if (templateDecl != null) {
-            TemplateParameterList templateParameterList = templateDecl.getTemplateParameters();
-            List<TemplateTypeParmDecl> templateTypeParmDeclList = collectTypeParameters(templateParameterList);
-            if (!templateTypeParmDeclList.isEmpty()) {
-                typeName = ParameterizedTypeName.get(className, templateTypeParmDeclList.stream().map(typeParmDecl ->
-                        TypeVariableName.get(typeParmDecl.getIdentifier().getName().toJavaString())).toArray(TypeName[]::new));
-            }
+        if (!typeVariableNameList.isEmpty()) {
+            typeName = ParameterizedTypeName.get(className, typeVariableNameList.toArray(new TypeName[0]));
         }
         return typeName;
     }
@@ -1782,20 +1786,28 @@ public class FFIBindingGenerator {
         try {
             underlyingFFIType = typeToFFIType(underlyingQualType);
         } catch (UnsupportedASTException e) {
-            Logger.warn("the unerlying type is not supported: %s", e.getMessage());
+            Logger.warn("the unerlying type '%s', is not supported: %s", underlyingQualType.getAsString(), e.getMessage());
             // If the underlying type is not supported, e.g., dependent name type,
             // we generate a place holder for the typedef alias
             underlyingFFIType = new FFIType(underlyingQualType, getJavaClassName(typedefNameDecl));
         }
         if (isJavaDeclarable(underlyingType)) {
-            return getJavaClassName(typedefNameDecl);
+            List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(typedefNameDecl.getDeclContext());
+            getJavaTypeVariablesOnDecl(typedefNameDecl, typeVariableNameList);
+
+            ClassName className = getJavaClassName(typedefNameDecl);
+            TypeName typeName = className;
+            if (!typeVariableNameList.isEmpty()) {
+                typeName = ParameterizedTypeName.get(className, typeVariableNameList.toArray(new TypeName[0]));
+            }
+            return typeName;
         }
         // other cases: only value, pointer and reference of type parameter is allowed.
         if (underlyingFFIType.isTemplateVariableDependent()) {
             return underlyingFFIType.javaType;
         }
         String declName = type.getDecl().getDeclName().getAsString().toJavaString();
-        throw unsupportedAST("Unsupported TypedefType: " + declName);
+        throw unsupportedAST("Unsupported TypedefType: " + declName + ", underlying type is: " + underlyingQualType.getAsString());
     }
 
     /**
@@ -2427,6 +2439,8 @@ public class FFIBindingGenerator {
         TypeGen typeGen = getOrCreateTypeGen(className, cxxRecordDecl);
         TypeSpec.Builder classBuilder = typeGen.builder;
         TypeSpec.Builder factoryClassBuilder = null;
+        List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(cxxRecordDecl.getDeclContext());
+        getJavaTypeVariablesOnDecl(cxxRecordDecl, typeVariableNameList);
         ClassTemplateDecl classTemplateDecl = cxxRecordDecl.getDescribedClassTemplate();
         {
             if (cxxRecordDecl.getNumBases() > 0) {
@@ -2522,13 +2536,17 @@ public class FFIBindingGenerator {
                     }
                 }
             }
-            if (!staticMethods.isEmpty()) {
+            // static methods in template classes are not supported, see GH-24, add a logger
+            if (!staticMethods.isEmpty() && !typeVariableNameList.isEmpty()) {
+                Logger.warn("TODO: static methods inside template clasess are not supported: %s", className);
+            }
+            if (!staticMethods.isEmpty() && typeVariableNameList.isEmpty()) {
                 String cxxName = getCXXName(cxxRecordDecl);
                 TypeSpec.Builder libraryBuilder = typeGen.getLibraryBuilder(cxxName);
                 Set<String> libraryMethods = new HashSet<>();
                 for (CXXMethodDecl methodDecl : staticMethods) {
+                    String methodName = methodDecl.getNameAsString().toJavaString();
                     try {
-                        String methodName = methodDecl.getNameAsString().toJavaString();
                         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder(methodName);
                         methodBuilder.addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
                         buildReturnAndParamTypes(methodBuilder, methodDecl);
@@ -2555,7 +2573,9 @@ public class FFIBindingGenerator {
                             continue;
                         }
                         libraryBuilder.addMethod(methodSpec);
-                    } catch (UnsupportedASTException e) {}
+                    } catch (UnsupportedASTException e) {
+                        Logger.debug("Failed to generate static method %s::%s: %s", cxxName, methodName, e);
+                    }
                 }
             }
 
@@ -2566,13 +2586,8 @@ public class FFIBindingGenerator {
             CXXRecordDecl.ctor_iterator begin = cxxRecordDecl.ctor_begin();
             CXXRecordDecl.ctor_iterator end = cxxRecordDecl.ctor_end();
             TypeName returnType = className;
-            if (classTemplateDecl != null) {
-                TemplateParameterList templateParameterList = classTemplateDecl.getTemplateParameters();
-                List<TemplateTypeParmDecl> templateTypeParmDeclList = collectTypeParameters(templateParameterList);
-                if (!templateTypeParmDeclList.isEmpty()) {
-                    returnType = ParameterizedTypeName.get(className, templateTypeParmDeclList.stream().map(decl ->
-                            TypeVariableName.get(decl.getIdentifier().getName().toJavaString())).toArray(TypeName[]::new));
-                }
+            if (!typeVariableNameList.isEmpty()) {
+                returnType = ParameterizedTypeName.get(className, typeVariableNameList.stream().toArray(TypeName[]::new));
             }
             for (; begin.notEquals(end); begin.next()) {
                 try {
@@ -2613,16 +2628,10 @@ public class FFIBindingGenerator {
             generateFields(cxxRecordDecl, classBuilder);
         }
         {
-            if (classTemplateDecl != null) {
-                TemplateParameterList templateParameterList = classTemplateDecl.getTemplateParameters();
-                List<TemplateTypeParmDecl> templateTypeParmDeclList = collectTypeParameters(templateParameterList);
-                for (TemplateTypeParmDecl param : templateTypeParmDeclList) {
-                    String name = param.getIdentifier().getName().toJavaString();
-                    TypeVariableName variableName = TypeVariableName.get(name);
-                    classBuilder.addTypeVariable(variableName);
-                    if (factoryClassBuilder != null) {
-                        factoryClassBuilder.addTypeVariable(variableName);
-                    }
+            for (TypeVariableName tv: typeVariableNameList) {
+                classBuilder.addTypeVariable(tv);
+                if (factoryClassBuilder != null) {
+                    factoryClassBuilder.addTypeVariable(tv);
                 }
             }
         }
@@ -2716,13 +2725,68 @@ public class FFIBindingGenerator {
         return tagDecl.isStruct() || tagDecl.isUnion() || tagDecl.isClass() || tagDecl.isEnum();
     }
 
+    private void getJavaTypeVariablesOnDecl(Decl decl, List<TypeVariableName> variables) {
+        Decl.Kind declKind = decl.getKind();
+        switch (declKind) {
+            case CXXRecord: {
+                // collect current template variables
+                CXXRecordDecl recordDecl = CXXRecordDecl.dyn_cast(decl);
+                ClassTemplateDecl classTemplateDecl = recordDecl.getDescribedClassTemplate();
+                if (classTemplateDecl != null) {
+                    List<TemplateTypeParmDecl> templateTypeParmDeclList = collectTypeParameters(classTemplateDecl.getTemplateParameters());
+                    for (TemplateTypeParmDecl param : templateTypeParmDeclList) {
+                        String name = param.getIdentifier().getName().toJavaString();
+                        if (debug) {
+                            for (TypeVariableName variable: variables) {
+                                if (variable.name.equals(name)) {
+                                    throw unsupportedAST("TODO: duplicate type variable is not supported: " + name);
+                                }
+                            }
+                        }
+                        variables.add(TypeVariableName.get(name));
+                    }
+                }
+            }
+        }
+    }
+
+    private void getJavaTypeVariablesInContext(DeclContext context, List<TypeVariableName> variables) {
+        Decl contextDecl = DeclContext.cast(context);
+        Decl.Kind contextKind = contextDecl.getKind();
+        DeclContext parentContext = context.getParent();
+        switch (contextKind) {
+            case Enum:
+            case Record:
+            case ClassTemplateSpecialization:
+            case Block:
+            case Namespace: {
+                getJavaTypeVariablesInContext(parentContext, variables);
+                return;
+            }
+            case CXXRecord: {
+                getJavaTypeVariablesInContext(parentContext, variables);
+                getJavaTypeVariablesOnDecl(contextDecl, variables);
+                return;
+            }
+            default: {
+                Logger.verbose("Type variables in context '%s' are not processed", contextKind);
+                return;
+            }
+        }
+    }
+
+    private List<TypeVariableName> getJavaTypeVariablesInContext(DeclContext context) {
+        List<TypeVariableName> variables = new ArrayList<>();
+        getJavaTypeVariablesInContext(context, variables);
+        return variables;
+    }
+
     private String getCXXContextName(DeclContext context) {
         Decl contextDecl = DeclContext.cast(context);
         Decl.Kind contextKind = contextDecl.getKind();
         DeclContext parentContext = context.getParent();
         switch (contextKind) {
             case Enum:
-            case CXXRecord:
             case Record:
             case Namespace: {
                 String parentName = getCXXContextName(parentContext);
@@ -2736,6 +2800,28 @@ public class FFIBindingGenerator {
                 NamedDecl namedDecl = (NamedDecl) contextDecl;
                 if (namedDecl.getIdentifier() != null) {
                     String name = namedDecl.getIdentifier().getName().toJavaString();
+                    if (parentName.isEmpty()) {
+                        return name;
+                    }
+                    return parentName + "::" + name;
+                } else {
+                    return parentName;
+                }
+            }
+            case CXXRecord: {
+                // process nested declartions, see GH-20.
+                String parentName = getCXXContextName(parentContext);
+                NamedDecl namedDecl = (NamedDecl) contextDecl;
+                if (namedDecl.getIdentifier() != null) {
+                    String name = namedDecl.getIdentifier().getName().toJavaString();
+                    CXXRecordDecl recordDecl = CXXRecordDecl.dyn_cast(contextDecl);
+                    ClassTemplateDecl classTemplateDecl = recordDecl.getDescribedClassTemplate();
+                    if (classTemplateDecl != null) {
+                        List<TemplateTypeParmDecl> templateTypeParmDeclList = collectTypeParameters(classTemplateDecl.getTemplateParameters());
+                        if (!templateTypeParmDeclList.isEmpty()) {
+                            name = name + "<" + String.join(",", Collections.nCopies(templateTypeParmDeclList.size(), "%s")) + ">";
+                        }
+                    }
                     if (parentName.isEmpty()) {
                         return name;
                     }
@@ -2869,9 +2955,8 @@ public class FFIBindingGenerator {
                 return sb.toString();
             }
             case TemplateTypeParm: {
-                // TemplateTypeParmType templateTypeParmType = TemplateTypeParmType.dyn_cast(type);
-                // return templateTypeParmType.getIdentifier().getName().toJavaString();
-                throw unsupportedAST("TODO: template type param is not supported for template instantiation");
+                TemplateTypeParmType templateTypeParmType = TemplateTypeParmType.dyn_cast(type);
+                return templateTypeParmType.getIdentifier().getName().toJavaString();
             }
             default:
                 throw unsupportedAST("Unsupported CXX type: " + type);
