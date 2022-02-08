@@ -26,4 +26,6 @@ public interface TypeAliasTemplateDecl extends RedeclarableTemplateDecl {
     static TypeAliasTemplateDecl dyn_cast(Decl decl) {
         return DeclCasting.INSTANCE.dyn_cast(decl, (TypeAliasTemplateDecl) null);
     }
+
+    TypeAliasDecl getTemplatedDecl();
 }

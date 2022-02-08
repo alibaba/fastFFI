@@ -87,6 +87,8 @@ import com.alibaba.fastffi.clang.TemplateTypeParmDecl;
 import com.alibaba.fastffi.clang.TemplateTypeParmType;
 import com.alibaba.fastffi.clang.TranslationUnitDecl;
 import com.alibaba.fastffi.clang.Type;
+import com.alibaba.fastffi.clang.TypeAliasDecl;
+import com.alibaba.fastffi.clang.TypeAliasTemplateDecl;
 import com.alibaba.fastffi.clang.TypeClass;
 import com.alibaba.fastffi.clang.TypedefNameDecl;
 import com.alibaba.fastffi.clang.TypedefType;
@@ -2016,6 +2018,50 @@ public class FFIBindingGenerator {
     private TypeName getJavaTypeForTemplateSpecializationType(TemplateSpecializationType type) {
         TemplateName templateName = type.getTemplateName();
         TemplateDecl templateDecl = templateName.getAsTemplateDecl();
+        ClassName baseClassName = null;
+
+        // See also: https://clang.llvm.org/doxygen/classclang_1_1TemplateDecl.html
+        switch (templateDecl.getKind()) {
+            case ClassTemplate: {
+                ClassTemplateDecl classTemplateDecl = ClassTemplateDecl.dyn_cast(templateDecl);
+                CXXRecordDecl cxxRecordDecl = classTemplateDecl.getTemplatedDecl();
+                baseClassName = getJavaClassName(cxxRecordDecl);
+                break;
+            }
+            case TypeAliasTemplate: {
+                TypeAliasTemplateDecl typeAliasTemplateDecl = TypeAliasTemplateDecl.dyn_cast(templateDecl);
+                TypeAliasDecl typeAliasDecl = typeAliasTemplateDecl.getTemplatedDecl();
+                baseClassName = getJavaClassName(typeAliasDecl);
+                break;
+            }
+            default: {
+                throw unsupportedAST("Unsupported template: " + templateDecl.getKind() + ", " + templateDecl);
+            }
+        }
+
+        int numArgs = type.getNumArgs();
+        if (numArgs == 0) {
+            return baseClassName;
+        }
+        List<TypeName> argTypeNames = new ArrayList<>();
+
+        forEachTemplateArgument(type, argType -> {
+            FFIType argFFIType = typeToFFIType(argType);
+            TypeName argTypeName = argFFIType.javaType;
+            if (argTypeName.isPrimitive()) {
+                argFFIType.setRequirePointer();
+                argTypeName = getPointerOfPrimitive(getCXXName(argFFIType.cxxQualType), argFFIType.javaType);
+            } else if (argFFIType.isPointer() || argFFIType.isReference()) {
+                argFFIType.setRequirePointer();
+                argTypeName = getPointerOfPointer(argFFIType.javaType);
+            }
+            argTypeNames.add(argTypeName);
+        });
+
+        return ParameterizedTypeName.get(baseClassName, argTypeNames.toArray(new TypeName[0]));
+    }
+
+    private TypeName getJavaTypeForClassTemplateSpecializationType(TemplateSpecializationType type, TemplateDecl templateDecl) {
         if (templateDecl.getKind() != Decl.Kind.ClassTemplate) {
             throw unsupportedAST("Unsupported template: " + templateDecl);
         }
