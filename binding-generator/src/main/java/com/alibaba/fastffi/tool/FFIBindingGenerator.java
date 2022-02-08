@@ -1237,11 +1237,24 @@ public class FFIBindingGenerator {
         }
     }
 
+    private String searchAvailableTemplateModule() throws IOException {
+        String outputDir = outputDirectory.toString();
+        int index = 0;
+        while (true) {
+            Path path = Paths.get(outputDir, "fastffi", "_gen", "templates", "T" + index + ".java");
+            if (!path.toFile().exists()) {
+                return "T" + index;
+            }
+            index += 1;
+        }
+    }
+
     private void instantiateTemplates() throws IOException {
         if (templateFactory.isEmpty()) {
             return;
         }
-        TypeSpec.Builder builder = TypeSpec.interfaceBuilder("Templates");
+        ClassName interfaceClassName = ClassName.get("fastffi._gen.templates", searchAvailableTemplateModule());
+        TypeSpec.Builder builder = TypeSpec.interfaceBuilder(interfaceClassName);
         AnnotationSpec.Builder ffiBatchGen = AnnotationSpec.builder(FFIGenBatch.class);
         for (Map.Entry<ClassName, Set<FFIType>> entry : templateFactory.getTemplates().entrySet()) {
             ClassName base = entry.getKey();
@@ -1279,7 +1292,7 @@ public class FFIBindingGenerator {
         }
         builder.addAnnotation(ffiBatchGen.build());
 
-        JavaFile javaFile = JavaFile.builder("", builder.build()).build();
+        JavaFile javaFile = JavaFile.builder(interfaceClassName.packageName(), builder.build()).build();
         javaFile.writeTo(outputDirectory);
     }
 
