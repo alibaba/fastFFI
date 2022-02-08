@@ -74,6 +74,8 @@ import com.alibaba.fastffi.clang.RecordDecl;
 import com.alibaba.fastffi.clang.RecordType;
 import com.alibaba.fastffi.clang.RefQualifierKind;
 import com.alibaba.fastffi.clang.ReferenceType;
+import com.alibaba.fastffi.clang.SourceLocation;
+import com.alibaba.fastffi.clang.SourceManager;
 import com.alibaba.fastffi.clang.SubstTemplateTypeParmType;
 import com.alibaba.fastffi.clang.TagDecl;
 import com.alibaba.fastffi.clang.TemplateArgument;
@@ -261,7 +263,7 @@ public class FFIBindingGenerator {
     static List<Pattern> classExcludes;
 
     // forward declaration is common in C++
-    static Map<String, List<String>> fwdHeaders;
+    static Map<String, List<String>> fwdHeaders = new HashMap<>();
 
     static String[] processCommandLines(String[] input) {
         int i = 0;
@@ -421,13 +423,11 @@ public class FFIBindingGenerator {
         if (args.length != 2) {
             throw new IllegalArgumentException("Expects a <class>=<header> pair for forward headers");
         }
-        if (fwdHeaders == null) {
-            fwdHeaders = new HashMap<>();
-        }
+        List<String> headers = Arrays.asList(args[1].split(","));
         if (fwdHeaders.containsKey(args[0])) {
-            fwdHeaders.get(args[0]).add(args[1]);
+            fwdHeaders.get(args[0]).addAll(headers);
         } else {
-            fwdHeaders.put(args[0], Arrays.asList(args[1]));
+            fwdHeaders.put(args[0], headers);
         }
     }
 
@@ -1150,6 +1150,28 @@ public class FFIBindingGenerator {
                 .build()).collect(Collectors.toList());
     }
 
+    private List<AnnotationSpec> collectForwardHeader(TypeName typeName) {
+        List<AnnotationSpec> includes = new ArrayList<>();
+        if (typeName instanceof ClassName) {
+            String key = ((ClassName) typeName).canonicalName();
+            List<String> headers = fwdHeaders.get(key);
+            if (headers != null) {
+                headers.stream().forEach(header -> {
+                    AnnotationSpec.Builder builder = AnnotationSpec.builder(CXXHead.class);
+                    if (header.charAt(0) == '<' && header.charAt(header.length()-1) == '>') {
+                        builder.addMember("system", "$S", header.substring(1, header.length() - 1));
+                    } else if (header.charAt(0) == '"' && header.charAt(header.length()-1) == '"') {
+                        builder.addMember("value", "$S", header.substring(1, header.length() - 1));
+                    } else {
+                        builder.addMember("value", "$S", header);
+                    }
+                    includes.add(builder.build());
+                });
+            }
+        }
+        return includes;
+    }
+
     private void collectInclude(Type type, Set<IncludeEntry> includes) {
         TypeClass typeClass = type.getTypeClass();
         switch (typeClass) {
@@ -1245,6 +1267,9 @@ public class FFIBindingGenerator {
                     cxxTemplate.addMember("cxx", "$S", cxxName);
                     cxxTemplate.addMember("java", "$S", javaName);
                     collectCXXHead(argType.getTypePtr()).forEach(c -> {
+                        cxxTemplate.addMember("include", "$L", c);
+                    });
+                    collectForwardHeader(javaName).forEach(c -> {
                         cxxTemplate.addMember("include", "$L", c);
                     });
                 });
@@ -1481,22 +1506,23 @@ public class FFIBindingGenerator {
         }
     }
 
+    private void addCXXHeaderOf(TypeGen typeGen, Decl decl) {
+        AnnotationSpec annotationSpec = createCXXHeader(decl);
+        if (annotationSpec != null) {
+            typeGen.addHeader(annotationSpec);
+        }
+    }
+
+    private void addCXXHeaderOf(TypeGen typeGen, ClassName className) {
+        AnnotationSpec annotationSpecFwd = createForwardHeaders(className);
+        if (annotationSpecFwd != null) {
+            typeGen.addHeader(annotationSpecFwd);
+        }
+    }
+
     private AnnotationSpec createCXXHeader(Type type) {
         Decl decl = getTypeDecl(type);
         return createCXXHeader(decl);
-    }
-
-    private HeaderDirectoryEntry getHeaderEntry(Type type) {
-        Decl decl = getTypeDecl(type);
-        return getHeaderEntry(decl);
-    }
-
-    private HeaderDirectoryEntry getHeaderEntry(Decl decl) {
-        if (decl == null) {
-            return null;
-        }
-        String fileName = decl.getASTContext().getSourceManager().getFilename(decl.getLocation()).toJavaString();
-        return headerManager.getIncludeDirectory(fileName);
     }
 
     private IncludeEntry getIncludeEntry(Type type) {
@@ -1508,26 +1534,26 @@ public class FFIBindingGenerator {
         if (decl == null) {
             return null;
         }
-        String fileName = decl.getASTContext().getSourceManager().getFilename(decl.getLocation()).toJavaString();
-        HeaderDirectoryEntry entry = headerManager.getIncludeDirectory(fileName);
-        if (entry == null) {
-            return null;
+        SourceManager sourceManager = decl.getASTContext().getSourceManager();
+        SourceLocation sourceLocation = sourceManager.getSpellingLoc(decl.getLocation());
+        String fileName = sourceManager.getFilename(sourceLocation).toJavaString();
+        if (!fileName.isEmpty()) {
+            HeaderDirectoryEntry entry = headerManager.getIncludeDirectory(fileName);
+            if (entry != null) {
+                return new IncludeEntry(entry.getIncludePath(fileName), entry.isSystemDir);
+            }
         }
-        return new IncludeEntry(entry.getIncludePath(fileName), entry.isSystemDir);
+        return null;
     }
 
     private AnnotationSpec createCXXHeader(Decl decl) {
-        if (decl == null) {
-            return null;
-        }
-        String fileName = decl.getASTContext().getSourceManager().getFilename(decl.getLocation()).toJavaString();
-        HeaderDirectoryEntry entry = getHeaderEntry(decl);
+        IncludeEntry entry = getIncludeEntry(decl);
         if (entry == null) {
             return null;
         }
         String key = entry.isSystemDir ? "system" : "value";
         return AnnotationSpec.builder(CXXHead.class)
-                .addMember(key, "$S", entry.getIncludePath(fileName))
+                .addMember(key, "$S", entry.include)
                 .build();
     }
 
@@ -3023,9 +3049,16 @@ public class FFIBindingGenerator {
         } else if (contextKind == Decl.Kind.ClassTemplateSpecialization) {
             TagDecl parentDecl = TagDecl.dyn_cast(contextDecl);
             ClassName parentClassName = getJavaClassName(parentDecl);
-            String packageName = parentClassName.packageName();
-            List<String> simpleNames = new ArrayList<>(parentClassName.simpleNames());
-            String simpleName = simpleNames.remove(0);
+
+            // generate template specialization as pkg.impl.class.specialization, e.g.,
+            // vineyard.gen.converttoarrowtype.ArrayTypeBool
+            StringBuilder packageName = new StringBuilder(parentClassName.packageName());
+
+            packageName.append(".impl");
+            for (String name: parentClassName.simpleNames()) {
+                packageName.append(".");
+                packageName.append(name.toLowerCase());
+            }
 
             // Generate a unique name for each template instantiation type.
             StringBuilder instantiation = new StringBuilder(capitalize(namedDecl.getIdentifier().getName().toJavaString()));
@@ -3040,8 +3073,7 @@ public class FFIBindingGenerator {
                 instantiation.append(capitalize(argType));
             }
 
-            simpleNames.add(instantiation.toString());
-            return getClassName(packageName, simpleName, simpleNames.toArray(new String[0]));
+            return getClassName(packageName.toString(), instantiation.toString());
         } else {
             String packageName = getPackageName(context);
             String simpleName = namedDecl.getIdentifier().getName().toJavaString();

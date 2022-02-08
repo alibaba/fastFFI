@@ -16,12 +16,21 @@
 package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.CXXReference;
+import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
 @CXXHead("clang/Basic/SourceLocation.h")
 @FFITypeAlias("clang::SourceLocation")
 public interface SourceLocation extends FFIPointer {
+    boolean isFileID();
+    boolean isMacroID();
+    boolean isValid();
+    boolean isInvalid();
+
+    @CXXValue StdString printToString(@CXXReference SourceManager SM);
 }

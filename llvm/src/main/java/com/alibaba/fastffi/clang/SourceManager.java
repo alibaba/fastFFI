@@ -28,11 +28,13 @@ import com.alibaba.fastffi.llvm.StringRef;
 public interface SourceManager extends FFIPointer {
     boolean isInMainFile(@CXXValue SourceLocation sourceLocation);
     @CXXValue StringRef getFilename(@CXXValue SourceLocation location);
+    @CXXValue SourceLocation getSpellingLoc(@CXXValue SourceLocation locationd);
+    @CXXValue SourceLocation getImmediateSpellingLoc(@CXXValue SourceLocation locationd);
+
     int getSpellingColumnNumber(@CXXValue SourceLocation Loc);
     int getExpansionColumnNumber(@CXXValue SourceLocation Loc);
     int getPresumedColumnNumber(@CXXValue SourceLocation Loc);
     int getSpellingLineNumber(@CXXValue SourceLocation Loc);
     int getExpansionLineNumber(@CXXValue SourceLocation Loc);
     int getPresumedLineNumber(@CXXValue SourceLocation Loc);
-
 }
