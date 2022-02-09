@@ -26,4 +26,6 @@ public interface TypeAliasDecl extends TypedefNameDecl {
     static TypeAliasDecl dyn_cast(Decl decl) {
         return DeclCasting.INSTANCE.dyn_cast(decl, (TypeAliasDecl) null);
     }
+
+    TypeAliasTemplateDecl getDescribedAliasTemplate();
 }

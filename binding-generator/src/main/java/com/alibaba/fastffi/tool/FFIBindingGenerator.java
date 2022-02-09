@@ -366,6 +366,9 @@ public class FFIBindingGenerator {
     }
 
     static void addExclude(String exclude) {
+        if (exclude.isEmpty() || exclude.charAt(0) == '#') {
+            return;
+        }
         if (exclude.contains("::")) {
             addMethodExclude(exclude);
         } else {
@@ -420,6 +423,9 @@ public class FFIBindingGenerator {
     }
 
     static void addForwardHeader(String line) {
+        if (line.isEmpty() || line.charAt(0) == '#') {
+            return;
+        }
         String[] args = line.split("=");
         if (args.length != 2) {
             throw new IllegalArgumentException("Expects a <class>=<header> pair for forward headers");
@@ -1061,7 +1067,7 @@ public class FFIBindingGenerator {
                     FFIType argFFIType = typeToFFIType(argType);
                     if (argFFIType.hasTypeVariable()) {
                         // no template variable in template is allowed
-                        throw unsupportedAST("TODO: no template variable in instantiated templates");
+                        throw unsupportedAST("TODO: template variable in instantiated templates are not supported");
                     }
                 });
                 Logger.info("Add template: %s", ffiType.javaType);
@@ -1402,6 +1408,12 @@ public class FFIBindingGenerator {
                 case ClassTemplate:
                     generateClassTemplate((ClassTemplateDecl) decl);
                     break;
+                case TypeAlias:
+                    generateTypeAlias((TypeAliasDecl) decl);
+                    break;
+                case TypeAliasTemplate:
+                    generateTypeAliasTemplate((TypeAliasTemplateDecl) decl);
+                    break;
                 default:
                     break;
             }
@@ -1454,6 +1466,10 @@ public class FFIBindingGenerator {
                 return getOrCreateTypeGen(tagDecl);
             case ClassTemplate:
                 return getOrCreateTypeGenIfNecessary(((ClassTemplateDecl) decl).getTemplatedDecl());
+            case TypeAlias:
+                return getOrCreateTypeGen((TypeAliasDecl) decl);
+            case TypeAliasTemplate:
+                return getOrCreateTypeGenIfNecessary(((TypeAliasTemplateDecl) decl).getTemplatedDecl());
             default:
                 return null;
         }
@@ -1607,6 +1623,31 @@ public class FFIBindingGenerator {
 
     void generateClassTemplate(ClassTemplateDecl classTemplateDecl) {
         generate(classTemplateDecl.getTemplatedDecl());
+    }
+
+    void generateTypeAlias(TypeAliasDecl typeAliasDecl) {
+        TypeGen typeGen = getOrCreateTypeGen(typeAliasDecl);
+        if (!typeGen.isNone()) {
+            return;
+        }
+
+        // the typedef type is a CXXPointer
+        typeGen.builder.addSuperinterface(CXXPointer.class);
+
+        // add type variables
+        List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(typeAliasDecl.getDeclContext());
+        getJavaTypeVariablesOnDecl(typeAliasDecl, typeVariableNameList);
+        for (TypeVariableName tv: typeVariableNameList) {
+            typeGen.builder.addTypeVariable(tv);
+        }
+
+        // mark succ
+        addCXXHeader(typeGen);
+        typeGen.succ();
+    }
+
+    void generateTypeAliasTemplate(TypeAliasTemplateDecl typeAliasTemplateDecl) {
+        generate(typeAliasTemplateDecl.getTemplatedDecl());
     }
 
     UnsupportedASTException unsupportedAST(String message) {
@@ -1770,7 +1811,8 @@ public class FFIBindingGenerator {
     }
 
     private TypeName getJavaTypeForDependentNameType(DependentNameType type) {
-        throw unsupportedAST("Unsupported dependent name type: " + type);
+        NestedNameSpecifier specifier = type.getQualifier();
+        throw unsupportedAST("Unsupported dependent name type: " + type + ": " + specifier.getKind());
     }
 
     private TypeName getJavaTypeForSubstTemplateTypeParmType(SubstTemplateTypeParmType type) {
@@ -1809,7 +1851,8 @@ public class FFIBindingGenerator {
         try {
             underlyingFFIType = typeToFFIType(underlyingQualType);
         } catch (UnsupportedASTException e) {
-            Logger.warn("the unerlying type '%s', is not supported: %s", underlyingQualType.getAsString(), e.getMessage());
+            Logger.warn("the unerlying type '%s (%s)', is not supported: %s",
+                    underlyingQualType.getAsString(), underlyingType.getTypeClass(), e.getMessage());
             // If the underlying type is not supported, e.g., dependent name type,
             // we generate a place holder for the typedef alias
             underlyingFFIType = new FFIType(underlyingQualType, getJavaClassName(typedefNameDecl));
@@ -1954,18 +1997,6 @@ public class FFIBindingGenerator {
                         }
                     }
                 }
-                {
-                    CXXRecordDecl cxxRecordDecl = CXXRecordDecl.dyn_cast(tagDecl);
-                    if (cxxRecordDecl != null) {
-                        ClassTemplateDecl classTemplateDecl = cxxRecordDecl.getDescribedClassTemplate();
-                        if (classTemplateDecl != null) {
-                            TemplateParameterList templateParameterList = classTemplateDecl.getTemplateParameters();
-                            if (templateParameterList.hasParameterPack()) {
-                                throw unsupportedAST("TODO: parameter pack is not supported");
-                            }
-                        }
-                    }
-                }
                 break;
             }
             case ClassTemplateSpecialization: {
@@ -1984,6 +2015,39 @@ public class FFIBindingGenerator {
             case ClassTemplate: {
                 ClassTemplateDecl classTemplateDecl = ClassTemplateDecl.dyn_cast(decl);
                 verifyDecl(classTemplateDecl.getTemplatedDecl());
+                {
+                    TemplateParameterList templateParameterList = classTemplateDecl.getTemplateParameters();
+                    if (templateParameterList.hasParameterPack()) {
+                        throw unsupportedAST("TODO: parameter pack is not supported on " + getJavaClassName(classTemplateDecl));
+                    }
+                }
+                break;
+            }
+            case TypeAlias: {
+                TypeAliasDecl typeAliasDecl = TypeAliasDecl.dyn_cast(decl);
+                ClassName javaClassName = getJavaClassName(typeAliasDecl);
+                if (exclude(javaClassName.canonicalName())) {
+                    throw new UnsupportedASTException("TODO: exclude type alias " + javaClassName);
+                }
+                break;
+            }
+            case TypeAliasTemplate: {
+                TypeAliasTemplateDecl typeAliasTemplateDecl = TypeAliasTemplateDecl.dyn_cast(decl);
+                verifyDecl(typeAliasTemplateDecl.getTemplatedDecl());
+                {
+                    TemplateParameterList templateParameterList = typeAliasTemplateDecl.getTemplateParameters();
+                    if (templateParameterList.hasParameterPack()) {
+                        throw unsupportedAST("TODO: parameter pack is not supported on type alias " + getJavaClassName(typeAliasTemplateDecl));
+                    }
+                }
+                break;
+            }
+            case Typedef: {
+                TypedefNameDecl typedefNameDecl = TypedefNameDecl.dyn_cast(decl);
+                ClassName javaClassName = getJavaClassName(typedefNameDecl);
+                if (exclude(javaClassName.canonicalName())) {
+                    throw new UnsupportedASTException("TODO: exclude type alias " + javaClassName);
+                }
                 break;
             }
         }
@@ -2025,6 +2089,11 @@ public class FFIBindingGenerator {
                 verifyDecl(rValueReferenceType.getPointeeType().getTypePtr());
                 break;
             }
+            case Typedef: {
+                TypedefType typedefType = TypedefType.dyn_cast(type);
+                verifyDecl(typedefType.getDecl());
+                break;
+            }
         }
     }
 
@@ -2032,8 +2101,9 @@ public class FFIBindingGenerator {
         if (exclude(ffiType.javaType.toString())) {
             throw new UnsupportedASTException("Excluded Java type: " + ffiType.javaType);
         }
-        Type canonical = ffiType.cxxType.getCanonicalTypeInternal().getTypePtr();
-        verifyDecl(canonical);
+        // N.B.: verify the cxxType itself, rather than the underlying canonical type
+        // verifyDecl(ffiType.cxxType.getCanonicalTypeInternal().getTypePtr());
+        verifyDecl(ffiType.cxxType);
     }
 
     private TypeName getJavaTypeForTemplateSpecializationType(TemplateSpecializationType type) {
@@ -2059,36 +2129,6 @@ public class FFIBindingGenerator {
                 throw unsupportedAST("Unsupported template: " + templateDecl.getKind() + ", " + templateDecl);
             }
         }
-
-        int numArgs = type.getNumArgs();
-        if (numArgs == 0) {
-            return baseClassName;
-        }
-        List<TypeName> argTypeNames = new ArrayList<>();
-
-        forEachTemplateArgument(type, argType -> {
-            FFIType argFFIType = typeToFFIType(argType);
-            TypeName argTypeName = argFFIType.javaType;
-            if (argTypeName.isPrimitive()) {
-                argFFIType.setRequirePointer();
-                argTypeName = getPointerOfPrimitive(getCXXName(argFFIType.cxxQualType), argFFIType.javaType);
-            } else if (argFFIType.isPointer() || argFFIType.isReference()) {
-                argFFIType.setRequirePointer();
-                argTypeName = getPointerOfPointer(argFFIType.javaType);
-            }
-            argTypeNames.add(argTypeName);
-        });
-
-        return ParameterizedTypeName.get(baseClassName, argTypeNames.toArray(new TypeName[0]));
-    }
-
-    private TypeName getJavaTypeForClassTemplateSpecializationType(TemplateSpecializationType type, TemplateDecl templateDecl) {
-        if (templateDecl.getKind() != Decl.Kind.ClassTemplate) {
-            throw unsupportedAST("Unsupported template: " + templateDecl);
-        }
-        ClassTemplateDecl classTemplateDecl = ClassTemplateDecl.dyn_cast(templateDecl);
-        CXXRecordDecl cxxRecordDecl = classTemplateDecl.getTemplatedDecl();
-        ClassName baseClassName = getJavaClassName(cxxRecordDecl);
 
         int numArgs = type.getNumArgs();
         if (numArgs == 0) {
@@ -2799,25 +2839,37 @@ public class FFIBindingGenerator {
 
     private void getJavaTypeVariablesOnDecl(Decl decl, List<TypeVariableName> variables) {
         Decl.Kind declKind = decl.getKind();
+        TemplateParameterList templateParameterList = null;
+        // collect current template variables
         switch (declKind) {
             case CXXRecord: {
-                // collect current template variables
                 CXXRecordDecl recordDecl = CXXRecordDecl.dyn_cast(decl);
                 ClassTemplateDecl classTemplateDecl = recordDecl.getDescribedClassTemplate();
                 if (classTemplateDecl != null) {
-                    List<TemplateTypeParmDecl> templateTypeParmDeclList = collectTypeParameters(classTemplateDecl.getTemplateParameters());
-                    for (TemplateTypeParmDecl param : templateTypeParmDeclList) {
-                        String name = param.getIdentifier().getName().toJavaString();
-                        if (debug) {
-                            for (TypeVariableName variable: variables) {
-                                if (variable.name.equals(name)) {
-                                    throw unsupportedAST("TODO: duplicate type variable is not supported: " + name);
-                                }
-                            }
+                    templateParameterList = classTemplateDecl.getTemplateParameters();
+                }
+                break;
+            }
+            case TypeAlias: {
+                TypeAliasDecl typeAliasDecl = TypeAliasDecl.dyn_cast(decl);
+                TypeAliasTemplateDecl typeAliasTemplateDecl = typeAliasDecl.getDescribedAliasTemplate();
+                if (typeAliasTemplateDecl != null) {
+                    templateParameterList = typeAliasTemplateDecl.getTemplateParameters();
+                }
+                break;
+            }
+        }
+        if (templateParameterList != null) {
+            for (TemplateTypeParmDecl param : collectTypeParameters(templateParameterList)) {
+                String name = param.getIdentifier().getName().toJavaString();
+                if (debug) {
+                    for (TypeVariableName variable: variables) {
+                        if (variable.name.equals(name)) {
+                            throw unsupportedAST("TODO: duplicate type variable is not supported: " + name);
                         }
-                        variables.add(TypeVariableName.get(name));
                     }
                 }
+                variables.add(TypeVariableName.get(name));
             }
         }
     }
@@ -2968,9 +3020,6 @@ public class FFIBindingGenerator {
                 Type underlyingType = typedefNameDecl.getUnderlyingType().getTypePtr();
                 TypeClass underlyingClass = underlyingType.getTypeClass();
                 switch (underlyingClass) {
-                    //case DependentName: {
-                    //    return getCXXName(typedefNameDecl);
-                    //}
                     case Enum:
                     case Builtin:
                     case Typedef:
@@ -2982,6 +3031,7 @@ public class FFIBindingGenerator {
                     case TemplateSpecialization:
                     case DependentName:
                     case SubstTemplateTypeParm:
+                    case TemplateTypeParm:
                         return getCXXName(typedefNameDecl);
                     default: {
                         throw unsupportedAST("Unsupported typedef type: " + typeClass + ", underlying " + underlyingClass);
@@ -3112,6 +3162,11 @@ public class FFIBindingGenerator {
         return getOrCreateTypeGen(className, tagDecl);
     }
 
+    private TypeGen getOrCreateTypeGen(TypedefNameDecl typedefNameDecl) {
+        ClassName className = getJavaClassName(typedefNameDecl);
+        return getOrCreateTypeGen(className, typedefNameDecl);
+    }
+
     private TypeGen getOrCreateTypeGen(ClassName className, TagDecl tagDecl) {
         if (!tagDecl.isThisDeclarationADefinition()) {
             throw new IllegalStateException("Must be definition!");
@@ -3121,10 +3176,24 @@ public class FFIBindingGenerator {
             TypeSpec.Builder builder = createTypeBuilder(className, tagDecl);
             {
                 String cxxName = getCXXName(tagDecl);
-                builder.addAnnotation(AnnotationSpec.builder(FFITypeAlias.class).addMember("value", "$S", cxxName).build());
+                builder.addAnnotation(getFFITypeAlias(cxxName));
                 if (!tagDecl.isEnum()) builder.addAnnotation(FFIGen.class);
             }
             typeGen = new TypeGen(className, builder, tagDecl);
+            addTypeGen(className, typeGen);
+        }
+        return typeGen;
+    }
+
+    private TypeGen getOrCreateTypeGen(ClassName className, TypedefNameDecl typedefNameDecl) {
+        TypeGen typeGen = getTypeGen(className);
+        if (typeGen == null) {
+            TypeSpec.Builder builder = TypeSpec.interfaceBuilder(className).addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+            {
+                builder.addAnnotation(getFFITypeAlias(getCXXName(typedefNameDecl)));
+                builder.addAnnotation(FFIGen.class);
+            }
+            typeGen = new TypeGen(className, builder, typedefNameDecl);
             addTypeGen(className, typeGen);
         }
         return typeGen;
@@ -3145,7 +3214,7 @@ public class FFIBindingGenerator {
      */
     private String capitalize(final String name) {
         if (name == null) {
-            return name;
+            return null;
         }
         final int strLen = name.length();
         if (strLen == 0) {
