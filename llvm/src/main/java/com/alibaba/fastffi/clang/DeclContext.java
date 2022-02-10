@@ -59,5 +59,8 @@ public interface DeclContext extends FFIPointer {
     DeclContext getLexicalParent();
     DeclContext getLookupParent();
 
+    DeclContext getPrimaryContext();
+    DeclContext getRedeclContext();
+
     @CXXReference ASTContext getParentASTContext();
 }

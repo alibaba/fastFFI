@@ -13,20 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.fastffi.clang;
+package com.alibaba.fastffi.tool;
 
-import com.alibaba.fastffi.CXXHead;
-import com.alibaba.fastffi.FFIGen;
-import com.alibaba.fastffi.FFITypeAlias;
-
-@FFIGen
-@FFITypeAlias("clang::TypeAliasTemplateDecl")
-@CXXHead("clang/AST/DeclTemplate.h")
-public interface TypeAliasTemplateDecl extends RedeclarableTemplateDecl {
-    static TypeAliasTemplateDecl dyn_cast(Decl decl) {
-        return DeclCasting.INSTANCE.dyn_cast(decl, (TypeAliasTemplateDecl) null);
+public class ExcludedException extends UnsupportedASTException {
+    public ExcludedException() {
     }
 
-    TypeAliasTemplateDecl getCanonicalDecl();
-    TypeAliasDecl getTemplatedDecl();
+    public ExcludedException(String message) {
+        super(message);
+    }
 }

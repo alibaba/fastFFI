@@ -45,6 +45,10 @@ public class Logger
         Logger.level = level;
     }
 
+    public static void setLevel(String level) {
+        Logger.level = Level.valueOf(level.toUpperCase());
+    }
+
     public static boolean info() {
         return level.ordinal() >= Level.INFO.ordinal();
     }

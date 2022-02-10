@@ -63,7 +63,6 @@ public interface Decl extends FFIPointer {
     @FFITypeAlias("clang::Decl::Kind")
     @FFITypeRefiner("com.alibaba.fastffi.clang.Decl.Kind.get")
     enum Kind implements CXXEnum {
-
         AccessSpec(Library.INSTANCE.AccessSpec()),
         Block(Library.INSTANCE.Block()),
         Captured(Library.INSTANCE.Captured()),
@@ -151,8 +150,7 @@ public interface Decl extends FFIPointer {
         @FFILibrary(value = "clang::Decl::Kind", namespace = "clang::Decl::Kind")
         interface Library {
             Library INSTANCE = FFITypeFactory.getLibrary(Library.class);
-            @FFIGetter
-            int AccessSpec();
+            @FFIGetter int AccessSpec();
             @FFIGetter int Block();
             @FFIGetter int Captured();
             @FFIGetter int ClassScopeFunctionSpecialization();

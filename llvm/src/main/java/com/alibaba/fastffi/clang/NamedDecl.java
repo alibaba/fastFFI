@@ -27,6 +27,10 @@ import com.alibaba.fastffi.stdcxx.StdString;
 @FFITypeAlias("clang::NamedDecl")
 @CXXHead("clang/AST/Decl.h")
 public interface NamedDecl extends Decl {
+    static NamedDecl dyn_cast(Decl decl) {
+        return DeclCasting.INSTANCE.dyn_cast(decl, (NamedDecl) null);
+    }
+
     @CXXValue StringRef getName();
     @CXXValue StdString getNameAsString();
     IdentifierInfo getIdentifier();

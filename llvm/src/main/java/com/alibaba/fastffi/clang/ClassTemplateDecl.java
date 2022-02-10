@@ -27,5 +27,8 @@ public interface ClassTemplateDecl extends RedeclarableTemplateDecl {
         return DeclCasting.INSTANCE.dyn_cast(decl, (ClassTemplateDecl) null);
     }
 
+    boolean isThisDeclarationADefinition();
+
+    ClassTemplateDecl getCanonicalDecl();
     CXXRecordDecl getTemplatedDecl();
 }

@@ -283,6 +283,11 @@ public class FFIBindingGenerator {
                     debug = true;
                     continue;
                 }
+                case "--log-level": {
+                    String logLevel = nextOperand(input, i++, cur);
+                    Logger.setLevel(logLevel);
+                    continue;
+                }
                 case "--search-directory": {
                     String directory = nextOperand(input, i++, cur);
                     searchDirectory.add(directory);
@@ -448,10 +453,6 @@ public class FFIBindingGenerator {
         try (COptions options = new COptions(processCommandLines(args));
                 MemoryHelper memoryHelper = new MemoryHelper();
                 CXXValueScope scope = new CXXValueScope()) {
-            if (debug) {
-                Logger.initialize(Logger.Level.DEBUG);
-            }
-
             StdString categoryName = StdString.create("FFIBindingGenerator");
             StdString categoryDesc = StdString.create("A tool that generates bindings for fastFFI");
             memoryHelper.add(categoryName);
@@ -1073,9 +1074,10 @@ public class FFIBindingGenerator {
                 Logger.info("Add template: %s", ffiType.javaType);
                 ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) ffiType.javaType;
                 templateFactory.add(parameterizedTypeName.rawType, ffiType);
+            } catch (ExcludedException e) {
             } catch (UnsupportedASTException e) {
                 Logger.error("Failed to check the template instantiation: %s, %s", ffiType, e.getMessage());
-                if (debug) {
+                if (Logger.verbose()) {
                     e.printStackTrace();
                 }
             }
@@ -1157,10 +1159,10 @@ public class FFIBindingGenerator {
                 .build()).collect(Collectors.toList());
     }
 
-    private List<AnnotationSpec> collectForwardHeader(TypeName typeName) {
-        List<AnnotationSpec> includes = new ArrayList<>();
+    private void collectForwardHeader(TypeName typeName, List<AnnotationSpec> includes) {
         if (typeName instanceof ClassName) {
-            String key = ((ClassName) typeName).canonicalName();
+            ClassName className = (ClassName) typeName;
+            String key = className.canonicalName();
             List<String> headers = fwdHeaders.get(key);
             if (headers != null) {
                 headers.stream().forEach(header -> {
@@ -1175,7 +1177,16 @@ public class FFIBindingGenerator {
                     includes.add(builder.build());
                 });
             }
+        } else if (typeName instanceof ParameterizedTypeName) {
+            ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) typeName;
+            collectForwardHeader(parameterizedTypeName.rawType, includes);
+            parameterizedTypeName.typeArguments.forEach(argument -> collectForwardHeader(argument, includes));
         }
+    }
+
+    private List<AnnotationSpec> collectForwardHeader(TypeName typeName) {
+        List<AnnotationSpec> includes = new ArrayList<>();
+        collectForwardHeader(typeName, includes);
         return includes;
     }
 
@@ -1372,9 +1383,10 @@ public class FFIBindingGenerator {
                 if (decl.isExplicitlyDeclaredInMainFile()) {
                     generate(decl);
                 }
+            } catch (ExcludedException e) {
             } catch (UnsupportedASTException e) {
                 Logger.error("Failed to generate for declaration in translation unit, %s", e.getMessage());
-                if (debug) {
+                if (Logger.verbose()) {
                     e.printStackTrace();
                 }
             }
@@ -1419,6 +1431,10 @@ public class FFIBindingGenerator {
             }
             if (decl instanceof DeclContext) {
                 DeclContext declContext = (DeclContext) decl;
+                if (declContext.decls_empty()) {
+                    // use the primary context
+                    declContext = declContext.getPrimaryContext();
+                }
                 DeclContext.decl_iterator begin = declContext.decls_begin();
                 DeclContext.decl_iterator end = declContext.decls_end();
                 for (; begin.notEquals(end); begin.next()) {
@@ -1430,8 +1446,9 @@ public class FFIBindingGenerator {
                     changed |= generate(begin.get());
                 }
             }
+        } catch (ExcludedException e) {
         } catch (UnsupportedASTException e) {
-            if (debug) {
+            if (Logger.verbose()) {
                 e.printStackTrace();
             }
             if (typeGen != null) {
@@ -1654,6 +1671,11 @@ public class FFIBindingGenerator {
         return new UnsupportedASTException(message);
     }
 
+    ExcludedException excludedException(String message) {
+        Logger.debug("[EXCLUDE]: %s", message);
+        return new ExcludedException(message);
+    }
+
     void buildReturnAndParamTypes(MethodSpec.Builder methodBuilder, TypeName returnType, CXXConstructorDecl methodDecl) {
         methodBuilder.returns(returnType);
         buildParamTypes(methodBuilder, methodDecl);
@@ -1851,7 +1873,7 @@ public class FFIBindingGenerator {
         try {
             underlyingFFIType = typeToFFIType(underlyingQualType);
         } catch (UnsupportedASTException e) {
-            Logger.warn("the unerlying type '%s (%s)', is not supported: %s",
+            Logger.debug("the unerlying type '%s (%s)', is not supported: %s",
                     underlyingQualType.getAsString(), underlyingType.getTypeClass(), e.getMessage());
             // If the underlying type is not supported, e.g., dependent name type,
             // we generate a place holder for the typedef alias
@@ -1892,7 +1914,7 @@ public class FFIBindingGenerator {
         }
         if (pointeeFFIType.isPointer()) {
             if (pointeeFFIType.isTemplateVariableDependent()) {
-                throw new UnsupportedASTException("TODO: no pointer to pointer of template variable is supported");
+                throw unsupportedAST("TODO: no pointer to pointer of template variable is supported");
             }
             // here is a little bit tricky;
             // we need to create a pointer to the pointer
@@ -1979,11 +2001,11 @@ public class FFIBindingGenerator {
                 if (tagDecl == null) {
                     tagDecl = TagDecl.dyn_cast(decl);
                     String name = tagDecl.getNameAsString().toJavaString();
-                    throw new UnsupportedASTException("TODO: cannot get the definition of a tag decl: " + name);
+                    throw unsupportedAST("TODO: cannot get the definition of a tag decl: " + name);
                 }
                 ClassName javaClassName = getJavaClassName(tagDecl);
                 if (exclude(javaClassName.canonicalName())) {
-                    throw new UnsupportedASTException("TODO: exclude " + javaClassName);
+                    throw excludedException("TODO: exclude " + javaClassName);
                 }
                 if (javaClassName.enclosingClassName() != null) {
                     DeclContext context = decl.getDeclContext();
@@ -1993,7 +2015,7 @@ public class FFIBindingGenerator {
                         CXXRecordDecl contextCXXRecordDecl = CXXRecordDecl.dyn_cast(contextDecl);
                         ClassTemplateDecl classTemplateDecl = contextCXXRecordDecl.getDescribedClassTemplate();
                         if (classTemplateDecl != null) {
-                            throw new UnsupportedASTException("TODO: inner class of a template is not supported");
+                            throw unsupportedAST("TODO: inner class of a template is not supported");
                         }
                     }
                 }
@@ -2027,7 +2049,7 @@ public class FFIBindingGenerator {
                 TypeAliasDecl typeAliasDecl = TypeAliasDecl.dyn_cast(decl);
                 ClassName javaClassName = getJavaClassName(typeAliasDecl);
                 if (exclude(javaClassName.canonicalName())) {
-                    throw new UnsupportedASTException("TODO: exclude type alias " + javaClassName);
+                    throw excludedException("TODO: exclude type alias " + javaClassName);
                 }
                 break;
             }
@@ -2046,7 +2068,7 @@ public class FFIBindingGenerator {
                 TypedefNameDecl typedefNameDecl = TypedefNameDecl.dyn_cast(decl);
                 ClassName javaClassName = getJavaClassName(typedefNameDecl);
                 if (exclude(javaClassName.canonicalName())) {
-                    throw new UnsupportedASTException("TODO: exclude type alias " + javaClassName);
+                    throw excludedException("TODO: exclude type alias " + javaClassName);
                 }
                 break;
             }
@@ -2099,11 +2121,15 @@ public class FFIBindingGenerator {
 
     private void verifyDecl(FFIType ffiType) {
         if (exclude(ffiType.javaType.toString())) {
-            throw new UnsupportedASTException("Excluded Java type: " + ffiType.javaType);
+            throw excludedException("Excluded java type: " + ffiType.javaType);
         }
-        // N.B.: verify the cxxType itself, rather than the underlying canonical type
-        // verifyDecl(ffiType.cxxType.getCanonicalTypeInternal().getTypePtr());
+        // N.B.: verify the cxxType itself first (in case of it has been exclueded), and verify
+        // the underlying canonical type if it has a different type class.
         verifyDecl(ffiType.cxxType);
+        Type canonical = ffiType.cxxType.getCanonicalTypeInternal().getTypePtr();
+        if (!ffiType.cxxType.getTypeClass().equals(canonical.getTypeClass())) {
+            verifyDecl(canonical);
+        }
     }
 
     private TypeName getJavaTypeForTemplateSpecializationType(TemplateSpecializationType type) {
@@ -2553,7 +2579,6 @@ public class FFIBindingGenerator {
         TypeSpec.Builder factoryClassBuilder = null;
         List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(cxxRecordDecl.getDeclContext());
         getJavaTypeVariablesOnDecl(cxxRecordDecl, typeVariableNameList);
-        ClassTemplateDecl classTemplateDecl = cxxRecordDecl.getDescribedClassTemplate();
         {
             if (cxxRecordDecl.getNumBases() > 0) {
                 // build base class
@@ -2640,10 +2665,11 @@ public class FFIBindingGenerator {
                         continue;
                     }
                     classBuilder.addMethod(methodSpec);
+                } catch (ExcludedException e) {
                 } catch (UnsupportedASTException e) {
                     Logger.error("Failed to generate for method %s::%s, %s",
                             className.canonicalName(), begin.get().getNameAsString(), e.getMessage());
-                    if (debug) {
+                    if (Logger.verbose()) {
                         e.printStackTrace();
                     }
                 }
@@ -2721,7 +2747,8 @@ public class FFIBindingGenerator {
                             .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
                     buildReturnAndParamTypes(methodBuilder, returnType, ctorDecl);
                     ctorBuilders.add(methodBuilder);
-                } catch (UnsupportedASTException e) {}
+                } catch (UnsupportedASTException e) {
+                }
             }
             if (!ctorBuilders.isEmpty()) {
                 Set<String> methods = new HashSet<>();
@@ -2774,7 +2801,11 @@ public class FFIBindingGenerator {
                 case Record:
                 case CXXRecord:
                 case Enum: {
-                    throw new IllegalStateException("Oops: should not call this method");
+                    NamedDecl namedDecl = NamedDecl.dyn_cast(contextDecl);
+                    if (namedDecl != null) {
+                        names.addFirst(namedDecl.getNameAsString().toJavaString());
+                    }
+                    break;
                 }
                 default:
                     break;
@@ -2804,7 +2835,7 @@ public class FFIBindingGenerator {
                 CXXRecordDecl contextCXXRecordDecl = CXXRecordDecl.dyn_cast(contextDecl);
                 ClassTemplateDecl classTemplateDecl = contextCXXRecordDecl.getDescribedClassTemplate();
                 if (classTemplateDecl != null) {
-                    // throw new UnsupportedASTException("TODO: inner class of a template is not supported");
+                    // throw unsupportedAST("TODO: inner class of a template is not supported");
                     return false;
                 }
             }
@@ -3099,6 +3130,42 @@ public class FFIBindingGenerator {
         return simpleName;
     }
 
+    private String getCXXName(RecordDecl recordDecl) {
+        Decl.Kind declKind = recordDecl.getKind();
+        switch (declKind) {
+            case Record: {
+                return getCXXName((NamedDecl) recordDecl);
+            }
+            case CXXRecord: {
+                CXXRecordDecl cxxRecordDecl = CXXRecordDecl.dyn_cast(recordDecl);
+                String name = getCXXName((NamedDecl) cxxRecordDecl);
+                if (cxxRecordDecl.getDescribedClassTemplate() != null) {
+                    throw unsupportedAST("Unspecialized template class cannot be a concrete type: " + name);
+                }
+                return name;
+            }
+            case ClassTemplateSpecialization: {
+                ClassTemplateSpecializationDecl classTemplateSpecializationDecl = ClassTemplateSpecializationDecl.dyn_cast(recordDecl);
+                CXXRecordDecl cxxRecordDecl = classTemplateSpecializationDecl.getSpecializedTemplate().getTemplatedDecl();
+                StringBuilder name = new StringBuilder(getCXXName((NamedDecl) cxxRecordDecl));
+                TemplateArgumentList templateArgumentList = classTemplateSpecializationDecl.getTemplateArgs();
+                name.append("<");
+                for (int i = 0; i < templateArgumentList.size(); ++i) {
+                    if (i > 0) {
+                        name.append(", ");
+                    }
+                    TemplateArgument templateArgument = templateArgumentList.get(i);
+                    name.append(getCXXNameInternal(templateArgument.getAsType(), false));
+                }
+                name.append(">");
+                return name.toString();
+            }
+            default: {
+                throw unsupportedAST("Unsupported record declaration: " + declKind);
+            }
+        }
+    }
+
     private ClassName getJavaClassName(NamedDecl namedDecl) {
         if (namedDecl.getIdentifier() == null) {
             throw unsupportedAST("Cannot get Java class name for anonymous NamedDecl: " + namedDecl);
@@ -3129,7 +3196,7 @@ public class FFIBindingGenerator {
             }
 
             // Generate a unique name for each template instantiation type.
-            StringBuilder instantiation = new StringBuilder(capitalize(namedDecl.getIdentifier().getName().toJavaString()));
+            StringBuilder instantiation = new StringBuilder(capitalizeCXXName(namedDecl.getIdentifier().getName().toJavaString()));
             ClassTemplateSpecializationDecl templateSpecializationDecl = ClassTemplateSpecializationDecl.dyn_cast(contextDecl);
             TemplateArgumentList templateArgumentList = templateSpecializationDecl.getTemplateArgs();
             for (int i = 0; i < templateArgumentList.size(); ++i) {
@@ -3138,7 +3205,7 @@ public class FFIBindingGenerator {
                     throw unsupportedAST("TODO: cannot support non-type argument: " + templateArgument.getKind());
                 }
                 String argType = getCXXNameInternal(templateArgument.getAsType(), false);
-                instantiation.append(capitalize(argType));
+                instantiation.append(capitalizeCXXName(argType));
             }
 
             return getClassName(packageName.toString(), instantiation.toString());
@@ -3212,7 +3279,7 @@ public class FFIBindingGenerator {
     /**
      * See also StringUtils.capitalize.
      */
-    private String capitalize(final String name) {
+    private String capitalizeCXXName(final String name) {
         if (name == null) {
             return null;
         }
@@ -3221,22 +3288,29 @@ public class FFIBindingGenerator {
             return name;
         }
 
-        final int firstCodepoint = name.codePointAt(0);
-        final int newCodePoint = Character.toTitleCase(firstCodepoint);
-        if (firstCodepoint == newCodePoint) {
-            // already capitalized
-            return name;
+        StringBuilder builder = new StringBuilder();
+        boolean toflip = true;
+        final int comma = Character.codePointAt(",", 0);
+        final int colon = Character.codePointAt(":", 0);
+        final int letter_than = Character.codePointAt("<", 0);
+        final int greater_than = Character.codePointAt(">", 0);
+        final int underscore = Character.codePointAt("_", 0);
+        for (int i = 0; i < name.length(); ++i) {
+            final int codepoint = name.codePointAt(i);
+            if (Character.isWhitespace(codepoint) || codepoint == comma || codepoint == colon ||
+                    codepoint == letter_than || codepoint == greater_than || codepoint == underscore) {
+                toflip = true;
+            } else {
+                if (toflip) {
+                    final int capcodepoint = Character.toTitleCase(codepoint);
+                    builder.append(Character.toChars(capcodepoint));
+                    toflip = false;
+                } else {
+                    builder.append(Character.toChars(codepoint));
+                }
+            }
         }
-
-        final int[] newCodePoints = new int[strLen]; // cannot be longer than the char array
-        int outOffset = 0;
-        newCodePoints[outOffset++] = newCodePoint; // copy the first codepoint
-        for (int inOffset = Character.charCount(firstCodepoint); inOffset < strLen; ) {
-            final int codepoint = name.codePointAt(inOffset);
-            newCodePoints[outOffset++] = codepoint; // copy the remaining ones
-            inOffset += Character.charCount(codepoint);
-        }
-        return new String(newCodePoints, 0, outOffset);
+        return builder.toString();
     }
 
     static void dump(String indent, DeclContext context) {
