@@ -812,7 +812,7 @@ public class TypeEnv {
         while (i < length) {
             char c = cxx.charAt(i);
             if (c == '<' || c == ',' || c == '>') {
-                String part = cxx.substring(begin, i);
+                String part = cxx.substring(begin, i).trim();
                 part = checkAndReplace(part, enclosingTypeMapping, unboundTypeVariables);
                 begin = i + 1;
                 if (c == '<') {

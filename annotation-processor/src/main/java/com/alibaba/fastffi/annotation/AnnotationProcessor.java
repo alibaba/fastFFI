@@ -97,10 +97,11 @@ public class AnnotationProcessor extends javax.annotation.processing.AbstractPro
                         if (isFFIGenBatch) processTypeBatch((TypeElement) ee, true);
                     } catch (IllegalStateException | IllegalArgumentException exc) {
                         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                                "" + exc.getClass().getName() + ": " + exc.getMessage());
+                                "" + exc.getClass().getName() + ": " + exc.getMessage(), ee);
                     }
                 } else {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,"An unsupported element " + ee + " has been annotated with " + e);
+                    processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
+                            "An unsupported element " + ee + " has been annotated with " + e, ee);
                 }
             }
         }

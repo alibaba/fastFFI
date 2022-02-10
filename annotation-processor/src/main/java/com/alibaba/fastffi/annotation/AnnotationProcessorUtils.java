@@ -135,12 +135,12 @@ public class AnnotationProcessorUtils {
             typeElement = elementUtils.getTypeElement("java.lang." + typeName);
         }
         if (typeElement == null) {
-            throw new IllegalArgumentException("Cannot find type " + typeName + " in the context of " +
+            throw new IllegalArgumentException("Cannot find type '" + typeName + "' in the context of " +
                     (context == null ? context : format(context)));
         }
         TypeMirror typeMirror = typeElement.asType();
         if (!isDeclaredType(typeMirror)) {
-            throw new IllegalArgumentException("" + typeName + " is not a DeclaredType.");
+            throw new IllegalArgumentException("'" + typeName + "' is not a DeclaredType.");
         }
         return (DeclaredType) typeMirror;
     }
@@ -155,7 +155,7 @@ public class AnnotationProcessorUtils {
     public static TypeElement getTypeElement(ProcessingEnvironment processingEnv, String name) {
         TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(name);
         if (typeElement == null) {
-            throw new IllegalStateException("Cannot find type element via " + name);
+            throw new IllegalStateException("Cannot find type element via '" + name + "'");
         }
         return typeElement;
     }
@@ -178,7 +178,7 @@ public class AnnotationProcessorUtils {
         while (i < length) {
             char c = typeName.charAt(i);
             if (c == '<' || c == ',' || c == '>') {
-                String part = typeName.substring(begin, i);
+                String part = typeName.substring(begin, i).trim();
                 begin = i + 1;
                 if (c == '<') {
                     DeclaredType declaredType = getDeclaredTypeInContext(processingEnv, part, context);
@@ -191,7 +191,7 @@ public class AnnotationProcessorUtils {
                         currentList.add(declaredType);
                     } // else {} already set
                     if (typeMirrorStack.isEmpty()) {
-                        throw new IllegalStateException("Mis-matching <> in type name " + typeName);
+                        throw new IllegalStateException("Mis-matching <> in type name '" + typeName + "'");
                     }
                     List<DeclaredType> lastList = typeMirrorStack.pop();
                     if (lastList.isEmpty()) {
@@ -201,10 +201,10 @@ public class AnnotationProcessorUtils {
                     DeclaredType last = lastList.get(lastIndex);
                     List<? extends TypeMirror> typeArguments = last.getTypeArguments();
                     if (typeArguments.size() != currentList.size()) {
-                        throw new IllegalStateException("Cannot parse " + typeName + ", ");
+                        throw new IllegalStateException("Cannot parse '" + typeName + "', ");
                     }
                     if (last.getEnclosingType().getKind() != TypeKind.NONE) {
-                        throw new IllegalArgumentException("Nested types are not supported: " + typeName + " has enclosing type " + last.getEnclosingType());
+                        throw new IllegalArgumentException("Nested types are not supported: '" + typeName + "' has enclosing type " + last.getEnclosingType());
                     }
                     last = typeUtils.getDeclaredType((TypeElement) last.asElement(), currentList.stream().toArray(TypeMirror[]::new));
                     lastList.set(lastIndex, last);
@@ -220,7 +220,7 @@ public class AnnotationProcessorUtils {
             throw new IllegalStateException();
         }
         if (currentList.size() != 1) {
-            throw new IllegalArgumentException("Current list is not singleton: " + currentList + "for " + typeName);
+            throw new IllegalArgumentException("Current list is not singleton: '" + currentList + "' for '" + typeName + "'");
         }
         return currentList.get(0);
     }
