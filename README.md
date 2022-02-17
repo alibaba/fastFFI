@@ -77,6 +77,12 @@ A Java programming language compiler must support standard options in the format
 5. `fastffi.cxxOutputLocation`
     * default value: `CLASS_OUTPUT`
     * accept values: `CLASS_OUTPUT`, `SOURCE_OUTPUT`, `NATIVE_HEADER_OUTPUT`.
+6. `fastffi.traceJNICalls`
+    * default value: `false`
+    * generate stuffs to trace the invocations of JNI wrappers
+7. `fastffi.compactFFINames`
+    * default value: `true`
+    * generate compact FFI wrapper type names, non-compact names will benefit debugging, but increase the binary size
 
 Usage:
 
@@ -109,7 +115,7 @@ brew install llvm@11 cmake maven
 2. Set ENV
 
 ```
-export LLVM11_HOME=/usr/local/Cellar/llvm@11/<version-number>
+export LLVM11_HOME=/usr/local/opt/llvm@11
 ```
 
 ## FAQ
