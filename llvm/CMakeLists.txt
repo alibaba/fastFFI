@@ -41,8 +41,16 @@ add_definitions(${LLVM_DEFINITIONS})
 
 add_library(${LIBNAME} SHARED ${SOURCES})
 
-
-llvm_map_components_to_libnames(llvm_libs support core option bitreader object)
+# Fixes the "LLVM ERROR: inconsistency in registered CommandLine options" error
+find_library(LIB_LLVM LLVM HINTS ${LLVM_LIBRARY_DIRS})
+if(LIB_LLVM)
+    message(STATUS "Use the LLVM library: ${LIB_LLVM}")
+    set(llvm_libs ${LIB_LLVM})
+else()
+    message(STATUS "Use the splited LLVM libraries")
+    llvm_map_components_to_libnames(_llvm_libs support core option bitreader object)
+    llvm_expand_dependencies(llvm_libs ${_llvm_libs})
+endif()
 
 target_link_libraries(${LIBNAME} ${llvm_libs} ${CMAKE_JNI_LINKER_FLAGS}
     clangAnalysis

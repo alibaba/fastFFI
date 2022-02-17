@@ -42,4 +42,4 @@ export LLVM11_HOME=$LLVM11_HOME
 
 echo "Using LLVM11 at $LLVM11_HOME"
 
-mvn clean install
+mvn ${MAVEN_ARGS:-} clean install
