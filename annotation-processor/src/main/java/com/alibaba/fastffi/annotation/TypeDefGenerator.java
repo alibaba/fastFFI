@@ -1482,6 +1482,10 @@ public class TypeDefGenerator extends TypeEnv {
         results.add("<jni.h>");
         results.add("<new>");
 
+        if (registry.processor.traceJNICalls) {
+            results.add("<stdio.h>");
+        }
+
         collectHeads(theTypeElement, results);
         collectHeads(typeDef.getAdditionalInclude(), results);
 
@@ -1737,6 +1741,9 @@ public class TypeDefGenerator extends TypeEnv {
                     cxxWriter.append(nativeType(nativeParameterType)).append(" ").append(String.format("arg%d /* %s */", i, paramName)); // do not use paramName
                 }
                 cxxWriter.append(") {\n");
+                if (registry.processor.traceJNICalls) {
+                    cxxWriter.append("\tprintf(\"fastffi: [%s][%d]: %s\\n\", __FILE__, __LINE__, __func__);\n");
+                }
                 if (returnVRP == VRP.Pointer) {
                     String cxxFullTypeName = getCxxFullTypeName();
                     String expr = String.format("new %s(%%s)", cxxFullTypeName);
@@ -1968,6 +1975,7 @@ public class TypeDefGenerator extends TypeEnv {
                      .append(
                          "jint JNICALL " + encodeNativeMethodName(getGeneratedJavaClassName(), "_elementSize$$$", null))
                      .append("(JNIEnv*, jclass) {\n")
+                     .append(registry.processor.traceJNICalls ? "    printf(\"fastffi: [%s][%d]: %s\\n\", __FILE__, __LINE__, __func__);\n" : "")
                      .append("    return (jint)sizeof(" + getCxxFullTypeName() + ");\n")
                      .append("}");
             writeCxxFile = true; // TODO: every FFIPointer now have a _elementSize$$$.
@@ -2433,6 +2441,9 @@ public class TypeDefGenerator extends TypeEnv {
                     cxxWriter.append(nativeType(nativeParameterType)).append(" ").append(String.format("arg%d /* %s */", i, paramName)); // do not use paramName
                 }
                 cxxWriter.append(") {\n");
+                if (registry.processor.traceJNICalls) {
+                    cxxWriter.append("\tprintf(\"fastffi: [%s][%d]: %s\\n\", __FILE__, __LINE__, __func__);\n");
+                }
                 FFIGetter getter = executableElement.getAnnotation(FFIGetter.class);
                 FFISetter setter = executableElement.getAnnotation(FFISetter.class);
                 CXXOperator operator = executableElement.getAnnotation(CXXOperator.class);

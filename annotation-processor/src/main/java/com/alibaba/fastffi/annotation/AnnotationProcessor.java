@@ -47,6 +47,8 @@ public class AnnotationProcessor extends javax.annotation.processing.AbstractPro
     static final String STRICT_TYPE_CHECK_KEY = "fastffi.strictTypeCheck";
     static final String NULL_RETURN_VALUE_CHECK_KEY = "fastffi.nullReturnValueCheck";
     static final String CXX_OUTPUT_LOCATION_KEY = "fastffi.cxxOutputLocation";
+    static final String TRACE_JNI_CALLS_KEY = "fastffi.traceJNICalls";
+    static final String COMPACT_FFI_NAMES_KEY = "fastffi.compactFFINames";
 
     TypeDefRegistry registry;
 
@@ -55,6 +57,8 @@ public class AnnotationProcessor extends javax.annotation.processing.AbstractPro
     JavaFileManager.Location cxxOutputLocation = StandardLocation.SOURCE_OUTPUT;
     boolean strictTypeCheck = false;
     boolean nullReturnValueCheck = true;
+    boolean traceJNICalls = false;
+    boolean compactFFINames = true;
 
     private void loadOptions(ProcessingEnvironment processingEnv) {
         Map<String, String> options = processingEnv.getOptions();
@@ -63,6 +67,8 @@ public class AnnotationProcessor extends javax.annotation.processing.AbstractPro
         strictTypeCheck = getBoolean(options, STRICT_TYPE_CHECK_KEY, false);
         nullReturnValueCheck = getBoolean(options, NULL_RETURN_VALUE_CHECK_KEY, true);
         cxxOutputLocation = getLocation(options, CXX_OUTPUT_LOCATION_KEY, StandardLocation.SOURCE_OUTPUT);
+        traceJNICalls = getBoolean(options, TRACE_JNI_CALLS_KEY, false);
+        compactFFINames = getBoolean(options, COMPACT_FFI_NAMES_KEY, true);
     }
 
     public synchronized void init(ProcessingEnvironment processingEnv) {

@@ -64,14 +64,23 @@ public class TypeDef {
     private final FFILibrary ffiLibrary;
 
     public TypeDef(TypeElement theTypeElement, FFIGen ffiGen, CXXTemplate template) {
-        this(theTypeElement, ffiGen, template, theTypeElement.getAnnotation(FFITypeAlias.class),
+        this(theTypeElement, ffiGen, template, false,
+                theTypeElement.getAnnotation(FFITypeAlias.class),
                 theTypeElement.getAnnotation(FFINameSpace.class),
                 theTypeElement.getAnnotation(FFILibrary.class),
                 theTypeElement.getAnnotation(FFIMirror.class));
     }
 
-    public TypeDef(TypeElement theTypeElement, FFIGen ffiGen, CXXTemplate template, FFITypeAlias ffiTypeAlias,
-                        FFINameSpace ffiNamespace, FFILibrary ffiLibrary, FFIMirror ffiMirror) {
+    public TypeDef(TypeElement theTypeElement, FFIGen ffiGen, CXXTemplate template, boolean compactFFINames) {
+        this(theTypeElement, ffiGen, template, compactFFINames,
+                theTypeElement.getAnnotation(FFITypeAlias.class),
+                theTypeElement.getAnnotation(FFINameSpace.class),
+                theTypeElement.getAnnotation(FFILibrary.class),
+                theTypeElement.getAnnotation(FFIMirror.class));
+    }
+
+    public TypeDef(TypeElement theTypeElement, FFIGen ffiGen, CXXTemplate template, boolean compactFFINames,
+                        FFITypeAlias ffiTypeAlias, FFINameSpace ffiNamespace, FFILibrary ffiLibrary, FFIMirror ffiMirror) {
         this.typeElementName = theTypeElement.getQualifiedName().toString();
         this.declaredTypeElementName = getDeclaredTypeElementName(theTypeElement);
         this.ffiGen = ffiGen;
@@ -82,7 +91,7 @@ public class TypeDef {
         this.ffiTypeAlias = ffiTypeAlias;
         this.ffiNamespace = ffiNamespace;
         this.template = template;
-        this.simpleClassName = getSimpleName(theTypeElement) + getSuffixForGeneratedName();
+        this.simpleClassName = getSimpleName(theTypeElement) + getSuffixForGeneratedName(compactFFINames);
         this.fullClassName = getGeneratedJavaClassName();
     }
 
@@ -237,6 +246,19 @@ public class TypeDef {
         return getCXXFullTypeName();
     }
 
+    public String escapeTypeRegistryId(String typeRegistryId) {
+        StringBuilder escaped = new StringBuilder();
+        for (int i = 0; i < typeRegistryId.length(); ++i) {
+            char c = typeRegistryId.charAt(i);
+            if (Character.isLetterOrDigit(c) || c == '_') {
+                escaped.append(c);
+            } else {
+                escaped.append("_");
+            }
+        }
+        return escaped.toString();
+    }
+
     public String getCXXFullTypeName() {
         assertNotFFILibrary("getCXXFullTypeName");
         if (cxxFullTypeName == null) {
@@ -283,8 +305,12 @@ public class TypeDef {
         return baseTypeName + "<" + String.join(",", template.cxx()) + ">";
     }
 
-    public String getSuffixForGeneratedName() {
-        return String.format("_cxx_0x%x", getTypeRegistryId().hashCode());
+    public String getSuffixForGeneratedName(final boolean compactFFINames) {
+        if (compactFFINames) {
+            return String.format("_cxx_0x%x", getTypeRegistryId().hashCode());
+        } else {
+            return "_cxx_" + escapeTypeRegistryId(getTypeRegistryId());
+        }
     }
 
     public String getGeneratedJavaClassName() {
