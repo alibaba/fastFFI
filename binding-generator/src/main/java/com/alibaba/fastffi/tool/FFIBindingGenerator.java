@@ -159,8 +159,7 @@ public class FFIBindingGenerator {
             if (file.isEmpty()) {
                 throw new IllegalStateException("Should not be empty");
             }
-            String relative = file.substring(directory.length() + File.separator.length());
-            return relative;
+            return file.substring(directory.length() + File.separator.length());
         }
     }
 
@@ -1755,126 +1754,6 @@ public class FFIBindingGenerator {
         return typeName;
     }
 
-    private TypeName getJavaTypeForElaboratedType(ElaboratedType type) {
-        ElaboratedType elaboratedType = ElaboratedType.dyn_cast(type);
-        return typeToTypeName(elaboratedType.desugar().getTypePtr());
-    }
-
-    private TypeName getJavaTypeForDependentNameType(DependentNameType type) {
-        NestedNameSpecifier specifier = type.getQualifier();
-        throw unsupportedAST("Unsupported dependent name type: " + type + ": " + specifier.getKind());
-    }
-
-    private TypeName getJavaTypeForSubstTemplateTypeParmType(SubstTemplateTypeParmType type) {
-        throw unsupportedAST("Unsupported subst template type param type: " + type);
-    }
-
-    public TypeName getJavaTypeForInjectedClassNameType(InjectedClassNameType type) {
-        CXXRecordDecl decl = type.getDecl();
-        List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(decl.getDeclContext());
-        getJavaTypeVariablesOnDecl(decl, typeVariableNameList);
-
-        ClassName className = getJavaClassName(decl);
-        TypeName typeName = className;
-        if (!typeVariableNameList.isEmpty()) {
-            typeName = ParameterizedTypeName.get(className, typeVariableNameList.toArray(new TypeName[0]));
-        }
-        return typeName;
-    }
-
-    /**
-     * <ul>
-     *     <li>If the typedef is defined from a primitve, then use the primitive type name</li>
-     *     <li>otherwise, get the name from the TypedefNameDecl.
-     *     In this case, we may create redundant Java bindings for aliased types,
-     *     where each type alias has a Java binding. Java does not support type alias
-     *     so we use inheritance to support type alias.</li>
-     * </ul>
-     * @param typedefType
-     * @return
-     */
-    private TypeName getJavaTypeForTypedefType(TypedefType typedefType) {
-        TypedefNameDecl typedefNameDecl = typedefType.getDecl();
-        QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
-        Type underlyingType = inspectTypedefType(underlyingQualType.getTypePtr());
-        FFIType underlyingFFIType;
-        try {
-            underlyingFFIType = typeToFFIType(underlyingQualType);
-        } catch (UnsupportedASTException e) {
-            Logger.debug("the unerlying type '%s (%s)', is not supported: %s",
-                    underlyingQualType.getAsString(), underlyingType.getTypeClass(), e.getMessage());
-            // If the underlying type is not supported, e.g., dependent name type,
-            // we generate a place holder for the typedef alias
-            underlyingFFIType = new FFIType(underlyingQualType, getJavaClassName(typedefNameDecl));
-        }
-        if (isJavaDeclarable(underlyingType)) {
-            List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(typedefNameDecl.getDeclContext());
-            getJavaTypeVariablesOnDecl(typedefNameDecl, typeVariableNameList);
-
-            ClassName className = getJavaClassName(typedefNameDecl);
-            TypeName typeName = className;
-            if (!typeVariableNameList.isEmpty()) {
-                typeName = ParameterizedTypeName.get(className, typeVariableNameList.toArray(new TypeName[0]));
-            }
-            return typeName;
-        }
-        // other cases: only value, pointer and reference of type parameter is allowed.
-        if (underlyingFFIType.isTemplateVariableDependent()) {
-            return underlyingFFIType.javaType;
-        }
-        String declName = typedefType.getDecl().getDeclName().getAsString().toJavaString();
-        throw unsupportedAST("Unsupported TypedefType: " + declName + ", underlying type is: " + underlyingQualType.getAsString());
-    }
-
-    /**
-     * TODO: We currently does not support pointer of pointer
-     * unless the pointer type is redefined as a new type via typedef or using.
-     * @param pointeeQualType
-     * @return
-     */
-    private TypeName getJavaTypeForPointeeType(QualType pointeeQualType) {
-        FFIType pointeeFFIType = typeToFFIType(pointeeQualType);
-        if (pointeeFFIType.isVoid()) {
-            return TypeName.LONG;
-        }
-        if (pointeeFFIType.isReference()) {
-            throw new IllegalStateException("Sanity check");
-        }
-        if (pointeeFFIType.isPointer()) {
-            if (pointeeFFIType.isTemplateVariableDependent()) {
-                throw unsupportedAST("TODO: no pointer to pointer of template variable is supported");
-            }
-            // here is a little bit tricky;
-            // we need to create a pointer to the pointer
-            return getPointerOfPointer(pointeeFFIType.javaType);
-        }
-        if (pointeeFFIType.isPrimitive()) {
-            return getPointerOfPrimitive(pointeeFFIType);
-        }
-        if (pointeeFFIType.isTemplateVariableDependent()) {
-            return pointeeFFIType.javaType;
-        }
-        return pointeeFFIType.javaType;
-    }
-
-    private Type inspectTypedefType(Type type) {
-        switch (type.getTypeClass()) {
-            case Typedef: {
-                TypedefType typedefType = TypedefType.dyn_cast(type);
-                TypedefNameDecl typedefNameDecl = typedefType.getDecl();
-                QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
-                return inspectTypedefType(underlyingQualType.getTypePtr());
-            }
-            default: {
-                return type;
-            }
-        }
-    }
-
-    ClassName getClassName(String packageName, String simpleName, String... simpleNames) {
-        return ClassName.get(packageName, simpleName, simpleNames);
-    }
-
     private ClassName getPointerOfPrimitive(String cxxName, TypeName javaName) {
         if (!javaName.isPrimitive()) {
             throw new IllegalStateException("Must be a primitive type, got " + javaName);
@@ -1908,8 +1787,216 @@ public class FFIBindingGenerator {
         }
     }
 
+    private TypeName getJavaTypeForElaboratedType(ElaboratedType type) {
+        ElaboratedType elaboratedType = ElaboratedType.dyn_cast(type);
+        return typeToTypeName(elaboratedType.desugar().getTypePtr());
+    }
+
+    private TypeName getJavaTypeForDependentNameType(DependentNameType type) {
+        NestedNameSpecifier specifier = type.getQualifier();
+        throw unsupportedAST("Unsupported dependent name type: " + type + ": " + specifier.getKind());
+    }
+
+    private TypeName getJavaTypeForSubstTemplateTypeParmType(SubstTemplateTypeParmType type) {
+        throw unsupportedAST("Unsupported subst template type param type: " + type);
+    }
+
+    private TypeName getJavaTypeForInjectedClassNameType(InjectedClassNameType type) {
+        CXXRecordDecl decl = type.getDecl();
+        verifyVisibility(decl);
+
+        List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(decl.getDeclContext());
+        getJavaTypeVariablesOnDecl(decl, typeVariableNameList);
+
+        ClassName className = getJavaClassName(decl);
+        TypeName typeName = className;
+        if (!typeVariableNameList.isEmpty()) {
+            typeName = ParameterizedTypeName.get(className, typeVariableNameList.toArray(new TypeName[0]));
+        }
+        return typeName;
+    }
+
+    /**
+     * <ul>
+     *     <li>If the typedef is defined from a primitve, then use the primitive type name</li>
+     *     <li>otherwise, get the name from the TypedefNameDecl.
+     *     In this case, we may create redundant Java bindings for aliased types,
+     *     where each type alias has a Java binding. Java does not support type alias
+     *     so we use inheritance to support type alias.</li>
+     * </ul>
+     * @param typedefType
+     * @return
+     */
+    private TypeName getJavaTypeForTypedefType(TypedefType typedefType) {
+        TypedefNameDecl typedefNameDecl = typedefType.getDecl();
+        verifyVisibility(typedefNameDecl);
+
+        QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
+        Type underlyingType = inspectTypedefType(underlyingQualType.getTypePtr());
+        FFIType underlyingFFIType;
+        try {
+            underlyingFFIType = typeToFFIType(underlyingQualType);
+        } catch (UnsupportedASTException e) {
+            Logger.debug("the unerlying type '%s (%s)', is not supported: %s",
+                    underlyingQualType.getAsString(), underlyingType.getTypeClass(), e.getMessage());
+            // If the underlying type is not supported, e.g., dependent name type,
+            // we generate a place holder for the typedef alias
+            underlyingFFIType = new FFIType(underlyingQualType, getJavaClassName(typedefNameDecl));
+        }
+        if (isJavaDeclarable(underlyingType)) {
+            List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(typedefNameDecl.getDeclContext());
+            getJavaTypeVariablesOnDecl(typedefNameDecl, typeVariableNameList);
+
+            ClassName className = getJavaClassName(typedefNameDecl);
+            TypeName typeName = className;
+            if (!typeVariableNameList.isEmpty()) {
+                typeName = ParameterizedTypeName.get(className, typeVariableNameList.toArray(new TypeName[0]));
+            }
+            return typeName;
+        }
+        // other cases: only value, pointer and reference of type parameter is allowed.
+        if (underlyingFFIType.isTemplateVariableDependent()) {
+            return underlyingFFIType.javaType;
+        }
+        String declName = typedefType.getDecl().getDeclName().getAsString().toJavaString();
+        throw unsupportedAST("Unsupported TypedefType: " + declName + ", underlying type is: " + underlyingQualType.getAsString());
+    }
+
+    private Type inspectTypedefType(Type type) {
+        switch (type.getTypeClass()) {
+            case Typedef: {
+                TypedefType typedefType = TypedefType.dyn_cast(type);
+                TypedefNameDecl typedefNameDecl = typedefType.getDecl();
+                QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
+                return inspectTypedefType(underlyingQualType.getTypePtr());
+            }
+            default: {
+                return type;
+            }
+        }
+    }
+
+    /**
+     * TODO: We currently does not support pointer of pointer
+     * unless the pointer type is redefined as a new type via typedef or using.
+     * @param pointeeQualType
+     * @return
+     */
+    private TypeName getJavaTypeForPointeeType(QualType pointeeQualType) {
+        FFIType pointeeFFIType = typeToFFIType(pointeeQualType);
+        if (pointeeFFIType.isVoid()) {
+            return TypeName.LONG;
+        }
+        if (pointeeFFIType.isReference()) {
+            throw new IllegalStateException("Sanity check");
+        }
+        if (pointeeFFIType.isPointer()) {
+            if (pointeeFFIType.isTemplateVariableDependent()) {
+                throw unsupportedAST("TODO: no pointer to pointer of template variable is supported");
+            }
+            // here is a little bit tricky;
+            // we need to create a pointer to the pointer
+            return getPointerOfPointer(pointeeFFIType.javaType);
+        }
+        if (pointeeFFIType.isPrimitive()) {
+            return getPointerOfPrimitive(pointeeFFIType);
+        }
+        if (pointeeFFIType.isTemplateVariableDependent()) {
+            return pointeeFFIType.javaType;
+        }
+        return pointeeFFIType.javaType;
+    }
+
     private TypeName getJavaTypeForReferenceType(ReferenceType type) {
         return getJavaTypeForPointeeType(type.getPointeeType());
+    }
+
+    private TypeName getJavaTypeForTemplateSpecializationType(TemplateSpecializationType type) {
+        TemplateName templateName = type.getTemplateName();
+        TemplateDecl templateDecl = templateName.getAsTemplateDecl();
+        verifyVisibility(templateDecl);
+
+        ClassName baseClassName = null;
+
+        // See also: https://clang.llvm.org/doxygen/classclang_1_1TemplateDecl.html
+        switch (templateDecl.getKind()) {
+            case ClassTemplate: {
+                ClassTemplateDecl classTemplateDecl = ClassTemplateDecl.dyn_cast(templateDecl);
+                CXXRecordDecl cxxRecordDecl = classTemplateDecl.getTemplatedDecl();
+                baseClassName = getJavaClassName(cxxRecordDecl);
+                break;
+            }
+            case TypeAliasTemplate: {
+                TypeAliasTemplateDecl typeAliasTemplateDecl = TypeAliasTemplateDecl.dyn_cast(templateDecl);
+                TypeAliasDecl typeAliasDecl = typeAliasTemplateDecl.getTemplatedDecl();
+                baseClassName = getJavaClassName(typeAliasDecl);
+                break;
+            }
+            default: {
+                throw unsupportedAST("Unsupported template: " + templateDecl.getKind() + ", " + templateDecl);
+            }
+        }
+
+        int numArgs = type.getNumArgs();
+        if (numArgs == 0) {
+            return baseClassName;
+        }
+        List<TypeName> argTypeNames = new ArrayList<>();
+
+        forEachTemplateArgument(type, argType -> {
+            FFIType argFFIType = typeToFFIType(argType);
+            TypeName argTypeName = argFFIType.javaType;
+            if (argTypeName.isPrimitive()) {
+                argFFIType.setRequirePointer();
+                argTypeName = getPointerOfPrimitive(getCXXName(argFFIType.cxxQualType), argFFIType.javaType);
+            } else if (argFFIType.isPointer() || argFFIType.isReference()) {
+                argFFIType.setRequirePointer();
+                argTypeName = getPointerOfPointer(argFFIType.javaType);
+            }
+            argTypeNames.add(argTypeName);
+        });
+
+        return ParameterizedTypeName.get(baseClassName, argTypeNames.toArray(new TypeName[0]));
+    }
+
+    private TypeName getJavaTypeForTemplateTypeParamType(TemplateTypeParmType type) {
+        if (type.getDecl().hasDefaultArgument()) {
+            throw unsupportedAST("TODO: no support of template argument with default argument.");
+        }
+        IdentifierInfo identifierInfo = type.getIdentifier();
+        if (identifierInfo == null) {
+            throw unsupportedAST("TemplateTypeParamType does not have an identifier");
+        }
+        return TypeVariableName.get(identifierInfo.getName().toJavaString());
+    }
+
+    private TypeName getJavaTypeForPointerType(PointerType type) {
+        return getJavaTypeForPointeeType(type.getPointeeType());
+    }
+
+    private TypeName getJavaTypeForEnumType(EnumType type) {
+        EnumDecl enumDecl = type.getDecl();
+        verifyVisibility(enumDecl);
+
+        if (enumAsInteger) {
+            return TypeName.INT;
+        }
+        return getJavaClassName(enumDecl);
+    }
+
+    private TypeName getJavaTypeForRecordType(RecordType type) {
+        RecordDecl recordDecl = type.getDecl();
+        verifyVisibility(recordDecl);
+
+        return getJavaClassName(recordDecl);
+    }
+
+    private TypeName getJavaTypeForBuiltinType(BuiltinType type) {
+        TypeName typeName = getJavaTypeName(type);
+        if (typeName == null) {
+            throw unsupportedAST("Unsupported builtint type: " + type);
+        }
+        return typeName;
     }
 
     FFIType typeToFFIType(QualType qualType) {
@@ -1928,10 +2015,14 @@ public class FFIBindingGenerator {
         return key;
     }
 
-    private void verifyDecl(Decl decl) {
+    private void verifyVisibility(Decl decl) {
         if (!decl.getAccess().isPublicOrNone()) {
             throw unsupportedAST("Cannot find non-public decl: " + decl);
         }
+    }
+
+    private void verifyDecl(Decl decl) {
+        verifyVisibility(decl);
         Decl.Kind kind = decl.getKind();
         switch (kind) {
             case Enum:
@@ -2075,76 +2166,8 @@ public class FFIBindingGenerator {
         }
     }
 
-    private TypeName getJavaTypeForTemplateSpecializationType(TemplateSpecializationType type) {
-        TemplateName templateName = type.getTemplateName();
-        TemplateDecl templateDecl = templateName.getAsTemplateDecl();
-        ClassName baseClassName = null;
-
-        // See also: https://clang.llvm.org/doxygen/classclang_1_1TemplateDecl.html
-        switch (templateDecl.getKind()) {
-            case ClassTemplate: {
-                ClassTemplateDecl classTemplateDecl = ClassTemplateDecl.dyn_cast(templateDecl);
-                CXXRecordDecl cxxRecordDecl = classTemplateDecl.getTemplatedDecl();
-                baseClassName = getJavaClassName(cxxRecordDecl);
-                break;
-            }
-            case TypeAliasTemplate: {
-                TypeAliasTemplateDecl typeAliasTemplateDecl = TypeAliasTemplateDecl.dyn_cast(templateDecl);
-                TypeAliasDecl typeAliasDecl = typeAliasTemplateDecl.getTemplatedDecl();
-                baseClassName = getJavaClassName(typeAliasDecl);
-                break;
-            }
-            default: {
-                throw unsupportedAST("Unsupported template: " + templateDecl.getKind() + ", " + templateDecl);
-            }
-        }
-
-        int numArgs = type.getNumArgs();
-        if (numArgs == 0) {
-            return baseClassName;
-        }
-        List<TypeName> argTypeNames = new ArrayList<>();
-
-        forEachTemplateArgument(type, argType -> {
-            FFIType argFFIType = typeToFFIType(argType);
-            TypeName argTypeName = argFFIType.javaType;
-            if (argTypeName.isPrimitive()) {
-                argFFIType.setRequirePointer();
-                argTypeName = getPointerOfPrimitive(getCXXName(argFFIType.cxxQualType), argFFIType.javaType);
-            } else if (argFFIType.isPointer() || argFFIType.isReference()) {
-                argFFIType.setRequirePointer();
-                argTypeName = getPointerOfPointer(argFFIType.javaType);
-            }
-            argTypeNames.add(argTypeName);
-        });
-
-        return ParameterizedTypeName.get(baseClassName, argTypeNames.toArray(new TypeName[0]));
-    }
-
-    private TypeName getJavaTypeForTemplateTypeParamType(TemplateTypeParmType type) {
-        if (type.getDecl().hasDefaultArgument()) {
-            throw unsupportedAST("TODO: no support of template argument with default argument.");
-        }
-        IdentifierInfo identifierInfo = type.getIdentifier();
-        if (identifierInfo == null) {
-            throw unsupportedAST("TemplateTypeParamType does not have an identifier");
-        }
-        return TypeVariableName.get(identifierInfo.getName().toJavaString());
-    }
-
-    private TypeName getJavaTypeForPointerType(PointerType type) {
-        return getJavaTypeForPointeeType(type.getPointeeType());
-    }
-
-    private TypeName getJavaTypeForEnumType(EnumType type) {
-        if (enumAsInteger) {
-            return TypeName.INT;
-        }
-        return getJavaClassName(type.getDecl());
-    }
-
-    private TypeName getJavaTypeForRecordType(RecordType type) {
-        return getJavaClassName(type.getDecl());
+    ClassName getClassName(String packageName, String simpleName, String... simpleNames) {
+        return ClassName.get(packageName, simpleName, simpleNames);
     }
 
     static String getCXXTypeName(TypeName javaType) {
@@ -2210,14 +2233,6 @@ public class FFIBindingGenerator {
             default:
                 return null;
         }
-    }
-
-    private TypeName getJavaTypeForBuiltinType(BuiltinType type) {
-        TypeName typeName = getJavaTypeName(type);
-        if (typeName == null) {
-            throw unsupportedAST("Unsupported builtint type: " + type);
-        }
-        return typeName;
     }
 
     void buildParamTypes(MethodSpec.Builder methodBuilder, FunctionDecl functionDecl) {
@@ -2905,6 +2920,13 @@ public class FFIBindingGenerator {
                 NamedDecl namedDecl = (NamedDecl) contextDecl;
                 if (namedDecl.getIdentifier() != null) {
                     String name = namedDecl.getIdentifier().getName().toJavaString();
+
+                    // ensure the context class are generated
+                    if (contextKind == Decl.Kind.Record) {
+                        RecordDecl recordDecl = RecordDecl.dyn_cast(contextDecl);
+                        typeToFFIType(recordDecl.getTypeForDecl().getCanonicalTypeInternal());
+                    }
+
                     if (parentName.isEmpty()) {
                         return name;
                     }
@@ -2920,6 +2942,10 @@ public class FFIBindingGenerator {
                 if (namedDecl.getIdentifier() != null) {
                     String name = namedDecl.getIdentifier().getName().toJavaString();
                     CXXRecordDecl recordDecl = CXXRecordDecl.dyn_cast(contextDecl);
+
+                    // ensure the context class are generated
+                    typeToFFIType(recordDecl.getTypeForDecl().getCanonicalTypeInternal());
+
                     ClassTemplateDecl classTemplateDecl = recordDecl.getDescribedClassTemplate();
                     if (classTemplateDecl != null) {
                         List<TemplateTypeParmDecl> templateTypeParmDeclList = collectTypeParameters(classTemplateDecl.getTemplateParameters());
@@ -2943,6 +2969,13 @@ public class FFIBindingGenerator {
                 String parentName = getCXXContextName(parentContext);
                 ClassTemplateSpecializationDecl templateSpecializationDecl = ClassTemplateSpecializationDecl.dyn_cast(contextDecl);
                 ClassTemplateDecl classTemplateDecl = templateSpecializationDecl.getSpecializedTemplate();
+
+                // ensure the context class are generated
+                CXXRecordDecl recordDecl = classTemplateDecl.getTemplatedDecl();
+                if (recordDecl != null) {
+                    typeToFFIType(recordDecl.getTypeForDecl().getCanonicalTypeInternal());
+                }
+
                 StringBuilder args = new StringBuilder();
                 TemplateArgumentList templateArgumentList = templateSpecializationDecl.getTemplateArgs();
                 for (int i = 0; i < templateArgumentList.size(); ++i) {
@@ -3211,7 +3244,9 @@ public class FFIBindingGenerator {
             {
                 String cxxName = getCXXName(tagDecl);
                 builder.addAnnotation(getFFITypeAlias(cxxName));
-                if (!tagDecl.isEnum()) builder.addAnnotation(FFIGen.class);
+                if (!tagDecl.isEnum()) {
+                    builder.addAnnotation(FFIGen.class);
+                }
             }
             typeGen = new TypeGen(className, builder, tagDecl, fileComment, debug);
             addTypeGen(className, typeGen);
