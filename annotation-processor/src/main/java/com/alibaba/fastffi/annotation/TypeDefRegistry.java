@@ -22,7 +22,6 @@ import com.alibaba.fastffi.FFILibrary;
 import com.alibaba.fastffi.FFITypeAlias;
 
 import javax.annotation.processing.Filer;
-import javax.annotation.processing.FilerException;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
@@ -358,7 +357,7 @@ public class TypeDefRegistry {
                 writeProperties(processingEnv, properties, "", "ffi.properties");
             } catch (IOException exc) {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                        "" + exc.getClass().getName() + ": " + exc.getMessage());
+                        "" + exc.getClass().getName() + ": failed to write ffi.properties: " + exc.getMessage());
             }
         }
         if (!FFILibraryDefMap.isEmpty()) {
@@ -369,7 +368,7 @@ public class TypeDefRegistry {
                 writeProperties(processingEnv, properties, "", "ffilibrary.properties");
             } catch (IOException exc) {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                        "" + exc.getClass().getName() + ": " + exc.getMessage());
+                        "" + exc.getClass().getName() + ": failed to write ffilibrary.properties: " + exc.getMessage());
             }
         }
         writeFFIMirrorHead(processingEnv);
@@ -447,8 +446,8 @@ public class TypeDefRegistry {
             CXXTemplate[] templates = gen.templates();
             if (theTypeElement.getTypeParameters().isEmpty()) {
                 if (templates.length > 0) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Redundant templates for " + theTypeElement
-                            + " in " + gen);
+                    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
+                            "Redundant templates for " + theTypeElement + " in " + gen, theTypeElement);
                 }
                 processType(processingEnv, theTypeElement, gen, doGen);
             } else {

@@ -435,7 +435,8 @@ public class TypeDefGenerator extends TypeEnv {
                         } else {
                             returnTypeMapping = createTypeMapping(nameToDeclaredType, originalReturnType, enclosingTypeVariables);
                             if (returnTypeMapping == null) {
-                                processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, "Cannot get type mapping for " + originalReturnType);
+                                processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
+                                        "Cannot get type mapping for " + originalReturnType, executableElement);
                             }
                         }
                         if (returnTypeMapping != null) {
@@ -1443,7 +1444,9 @@ public class TypeDefGenerator extends TypeEnv {
     protected String getInternalTypeName(TypeMapping typeMapping, ExecutableElement executableElement) {
         TypeDef internalTypeDef = getTypeDefByForeignName(typeMapping);
         if (internalTypeDef == null) {
-            throw new IllegalStateException("Cannot find a TypeDef for " + typeMapping + " during generating " + AnnotationProcessorUtils.format(executableElement));
+            throw reportError(executableElement,
+                    "Cannot find a TypeDef for \n\t" + typeMapping +
+                            "\nduring generating\n\t" + AnnotationProcessorUtils.format(executableElement));
         }
         return internalTypeDef.getGeneratedJavaClassName();
     }
@@ -2737,7 +2740,7 @@ public class TypeDefGenerator extends TypeEnv {
             throw reportError(executableElement, executableType, "An FFIExpr must not be empty.");
         }
         if (expr.contains("%s")) {
-            throw reportError(executableElement, executableType, "TODO: An FFIExpr must not contain `%s'.");
+            throw reportError(executableElement, executableType, "TODO: An FFIExpr must not contain `%%s'.");
         }
         if (isGenFFIPointer()) {
             String cxxFullTypeName = getCxxFullTypeName();

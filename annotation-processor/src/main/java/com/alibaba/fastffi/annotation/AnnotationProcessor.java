@@ -126,7 +126,7 @@ public class AnnotationProcessor extends javax.annotation.processing.AbstractPro
                     }
                 }
             }
-            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message);
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message, exc.executableElement);
         } catch (Throwable exc) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
                     "" + exc.getClass().getName() + ": " + exc.getMessage());
@@ -168,5 +168,12 @@ public class AnnotationProcessor extends javax.annotation.processing.AbstractPro
             throw new IllegalStateException("Cannot getTypeEnv since we have no processingEnv now.");
         }
         return new TypeEnv(registry, processingEnv);
+    }
+
+    ProcessingEnvironment getProcessingEnv() {
+        if (processingEnv == null) {
+            throw new IllegalStateException("Cannot getProcessingEnv since we have no processingEnv now.");
+        }
+        return processingEnv;
     }
 }
