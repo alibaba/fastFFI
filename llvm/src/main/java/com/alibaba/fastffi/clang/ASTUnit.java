@@ -57,4 +57,7 @@ public interface ASTUnit extends CXXPointer {
     @CXXValue StringRef getASTFileName();
     @CXXReference DiagnosticsEngine getDiagnostics();
     @CXXReference Preprocessor getPreprocessor();
+
+    boolean hasSema();
+    @CXXReference Sema getSema();
 }

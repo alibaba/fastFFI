@@ -144,7 +144,7 @@ import java.util.stream.Stream;
 public class FFIBindingGenerator {
 
     static boolean debug = true;
-    static boolean enumAsInteger = true;
+    static boolean enumAsInteger = false;
 
     static class HeaderDirectoryEntry {
         final String directory;
@@ -291,6 +291,10 @@ public class FFIBindingGenerator {
                 case "--log-level": {
                     String logLevel = nextOperand(input, i++, cur);
                     Logger.setLevel(logLevel);
+                    continue;
+                }
+                case "--enum-as-integer": {
+                    enumAsInteger = true;
                     continue;
                 }
                 case "--search-directory": {
@@ -572,10 +576,12 @@ public class FFIBindingGenerator {
             return generatePointerOfPrimitiveOrPointer(ffiType, pointeeType);
         } else {
             if (!pointeeType.isValue()) {
-                throw new IllegalStateException("Sanity check failed");
+                throw new IllegalStateException(
+                        String.format("Sanity check failed: pointee is not a value type: %s vs. %s", ffiType, pointeeType));
             }
             if (!ffiType.javaType.equals(pointeeType.javaType)) {
-                throw new IllegalStateException("Sanity check failed");
+                throw new IllegalStateException(
+                        String.format("Sanity check failed: types not match: %s vs. %s", ffiType, pointeeType));
             }
             return generatePointerOfValue(ffiType, pointeeType);
         }
@@ -728,6 +734,10 @@ public class FFIBindingGenerator {
 
                 return ret;
             }
+            case InjectedClassName: {
+                // no need to generate for injected class name (as the pointee type of a pointer type), as it has already been generated.
+                return false;
+            }
             default:
                 throw unsupportedAST("Unsupported pointee type: " + ffiType);
         }
@@ -766,31 +776,70 @@ public class FFIBindingGenerator {
             return false;
         }
 
+        QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
+        TypeSpec.Builder factoryClassBuilder = null;
+        List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(typedefNameDecl.getDeclContext());
+
         try {
             // If the underlying type is not supported, we just skip generating the `get()` method.
-            FFIType underlyingFFIType = typeToFFIType(typedefNameDecl.getUnderlyingType());
+            FFIType underlyingFFIType = typeToFFIType(underlyingQualType);
             if (underlyingFFIType.isVoid()) {
                 throw unsupportedAST("TODO: alias of void is not supported.");
             }
 
-            MethodSpec.Builder getter = MethodSpec.methodBuilder("get").addModifiers(Modifier.ABSTRACT, Modifier.PUBLIC);
+            // part 1: genenrate getter/setter
+            MethodSpec.Builder getter = MethodSpec.methodBuilder("get")
+                    .returns(underlyingFFIType.javaType)
+                    .addModifiers(Modifier.ABSTRACT, Modifier.PUBLIC);
+            MethodSpec.Builder setter = MethodSpec.methodBuilder("set")
+                    .returns(TypeName.VOID)
+                    .addParameter(underlyingFFIType.javaType, "__value")
+                    .addModifiers(Modifier.ABSTRACT, Modifier.PUBLIC);
             if (underlyingFFIType.isPointer() || underlyingFFIType.isReference()) {
                 // cast the dereference of `this' to the aliased type pointer
-                getter.returns(underlyingFFIType.javaType);
                 getter.addAnnotation(ffiExpr("(*{0})"));
-            } else if (underlyingFFIType.isPrimitive()) {
+                setter.addAnnotation(ffiExpr("*{0} = (" + aliasCXXName + "){1}"));
+            } else if (underlyingFFIType.isPrimitive() || underlyingFFIType.isEnum()) {
                 // return the primitive dereference value
-                getter.returns(underlyingFFIType.javaType);
                 getter.addAnnotation(ffiExpr("(*{0})"));
+                setter.addAnnotation(ffiExpr("*{0} = (" + aliasCXXName + "){1}"));
             } else {
                 if (underlyingFFIType.javaType.isPrimitive()) {
                     throw new IllegalStateException("Must be a FFIPointer");
                 }
                 // cast `this' to the aliased type pointer
-                getter.returns(underlyingFFIType.javaType);
                 getter.addAnnotation(ffiExpr("{0}"));
+
+                // non- primitive types: `set` is not supported.
+                setter = null;
             }
             typeGen.builder.addMethod(getter.build());
+            if (setter != null) {
+                typeGen.builder.addMethod(setter.build());
+            }
+
+            // part 2: generate creating from alias pointers
+            if (!(underlyingFFIType.isPointer() || underlyingFFIType.isReference())) {
+                TypeName returnType = aliasJavaName;
+                if (!typeVariableNameList.isEmpty()) {
+                    returnType = ParameterizedTypeName.get(aliasJavaName, typeVariableNameList.toArray(new TypeName[0]));
+                }
+                if (underlyingFFIType.isPrimitive()) {
+                    // generate a factory interface
+                    factoryClassBuilder = typeGen.getFactoryBuilder();
+                    factoryClassBuilder.addMethod(MethodSpec.methodBuilder("create")
+                            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                            .returns(returnType)
+                            .build());
+                    factoryClassBuilder.addMethod(MethodSpec.methodBuilder("create")
+                            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                            .returns(returnType)
+                            .addParameter(ParameterSpec.builder(underlyingFFIType.javaType, "__value").build())
+                            .build());
+                } else {
+                    // TODO: generate a cast method from alias type, for verbosity and convenience
+                }
+            }
         } catch (UnsupportedASTException e) {
             // no `get()` is ok for interfaces
         }
@@ -799,8 +848,11 @@ public class FFIBindingGenerator {
         typeGen.builder.addSuperinterface(CXXPointer.class);
 
         // add type variables
-        for (TypeVariableName tv: getJavaTypeVariablesInContext(typedefNameDecl.getDeclContext())) {
+        for (TypeVariableName tv: typeVariableNameList) {
             typeGen.builder.addTypeVariable(tv);
+            if (factoryClassBuilder != null) {
+                factoryClassBuilder.addTypeVariable(tv);
+            }
         }
 
         // mark succ
@@ -809,7 +861,7 @@ public class FFIBindingGenerator {
         return true;
     }
 
-    private ClassName getOrCreatePointerOfPrimitive(FFIType ffiType) throws IOException {
+    private ClassName getOrCreatePointerOfPrimitive(FFIType ffiType) {
         return getOrCreatePointerOfPrimitive(getCXXName(ffiType), ffiType.javaType, ffiType);
     }
 
@@ -846,13 +898,33 @@ public class FFIBindingGenerator {
         return typeGen;
     }
 
-    private ClassName getOrCreatePointerOfPrimitive(String cxxName, TypeName javaType, FFIType ffiType) throws IOException {
+    private TypeGen generatePointerOfPrimitiveOrPointer(String cxxName, TypeName javaType, ClassName pointerName) {
+        TypeSpec.Builder classBuilder = TypeSpec.interfaceBuilder(pointerName).addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+        classBuilder.addAnnotation(FFIGen.class);
+        classBuilder.addAnnotation(getFFITypeAlias(cxxName));
+        TypeGen typeGen = new TypeGen(pointerName, classBuilder, null, fileComment, debug);
+        generatePointerOfPrimitiveOrPointer(cxxName, javaType, pointerName, typeGen);
+        return typeGen;
+    }
+
+    private ClassName getOrCreatePointerOfPrimitive(String cxxName, TypeName javaType, FFIType ffiType) {
         ClassName pointerName = getPointerOfPrimitive(cxxName, javaType);
         TypeGen typeGen = getTypeGen(pointerName);
         if (typeGen != null) {
             return pointerName;
         }
         typeGen = generatePointerOfPrimitiveOrPointer(cxxName, javaType, pointerName, ffiType);
+        addTypeGen(pointerName, typeGen);
+        return pointerName;
+    }
+
+    private ClassName getOrCreatePointerOfPrimitive(String cxxName, TypeName javaType)  {
+        ClassName pointerName = getPointerOfPrimitive(cxxName, javaType);
+        TypeGen typeGen = getTypeGen(pointerName);
+        if (typeGen != null) {
+            return pointerName;
+        }
+        typeGen = generatePointerOfPrimitiveOrPointer(cxxName, javaType, pointerName);
         addTypeGen(pointerName, typeGen);
         return pointerName;
     }
@@ -925,7 +997,7 @@ public class FFIBindingGenerator {
     }
 
     boolean process(FFIType ffiType) {
-        Logger.debug("Processing %s", ffiType);
+        Logger.debug("Processing %s: %s", ffiType, ffiType.cxxType.getTypeClass());
         try {
             if (ffiType.isPointer() || ffiType.isReference()) {
                 return processPointerOrReference(ffiType);
@@ -1420,6 +1492,12 @@ public class FFIBindingGenerator {
     }
 
     private void generateEnum(EnumDecl decl) {
+        TypeName int_pointer_t = null;
+        if (!enumAsInteger) {
+            // generate a int_pointer_t type for the underlying representation of enums.
+            int_pointer_t = getOrCreatePointerOfPrimitive("int", TypeName.INT);
+        }
+
         decl = decl.getDefinition();
         if (!isSupportedTagDecl(decl)) {
             throw unsupportedAST("Unsupported Enum: " + decl);
@@ -1444,26 +1522,40 @@ public class FFIBindingGenerator {
         }
         {
             classBuilder.addSuperinterface(CXXEnum.class);
-            classBuilder.addField(TypeName.INT, "$value");
-            classBuilder.addMethod(MethodSpec.methodBuilder("getValue")
-                    .addModifiers(Modifier.PUBLIC).returns(TypeName.INT).addStatement("return $$value")
-                    .build());
+            classBuilder.addAnnotation(AnnotationSpec.builder(FFITypeRefiner.class)
+                    .addMember("value", "$S", className.toString() + ".get").build());
+
             classBuilder.addMethod(MethodSpec.constructorBuilder()
                     .addStatement("$$value = value").addParameter(TypeName.INT, "value")
                     .build());
-
-            ClassName CXXEnumMapName = ClassName.get(CXXEnumMap.class);
-            TypeName mapName = ParameterizedTypeName.get(CXXEnumMapName, className);
-            classBuilder.addField(FieldSpec.builder(mapName, "$map", Modifier.STATIC, Modifier.FINAL, Modifier.PRIVATE)
-                    .initializer("new $T<>(values())", CXXEnumMap.class).build());
+            if (!enumAsInteger) {
+                classBuilder.addMethod(MethodSpec.constructorBuilder()
+                        .addStatement("$$value = value.get()").addParameter(int_pointer_t, "value")
+                        .build());
+            }
 
             classBuilder.addMethod(MethodSpec.methodBuilder("get")
                     .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                     .addParameter(TypeName.INT, "value")
                     .returns(className)
                     .addStatement("return $$map.get(value)").build());
-            classBuilder.addAnnotation(AnnotationSpec.builder(FFITypeRefiner.class)
-                    .addMember("value", "$S", className.toString() + ".get").build());
+            if (!enumAsInteger) {
+                classBuilder.addMethod(MethodSpec.methodBuilder("get")
+                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                        .addParameter(int_pointer_t, "value")
+                        .returns(className)
+                        .addStatement("return $$map.get(value.get())").build());
+            }
+
+            classBuilder.addField(TypeName.INT, "$value");
+            classBuilder.addMethod(MethodSpec.methodBuilder("getValue")
+                    .addModifiers(Modifier.PUBLIC).returns(TypeName.INT).addStatement("return $$value")
+                    .build());
+
+            ClassName CXXEnumMapName = ClassName.get(CXXEnumMap.class);
+            TypeName mapName = ParameterizedTypeName.get(CXXEnumMapName, className);
+            classBuilder.addField(FieldSpec.builder(mapName, "$map", Modifier.STATIC, Modifier.FINAL, Modifier.PRIVATE)
+                    .initializer("new $T<>(values())", CXXEnumMap.class).build());
         }
         addCXXHeader(typeGen);
         typeGen.succ();
@@ -1521,6 +1613,9 @@ public class FFIBindingGenerator {
     }
 
     private AnnotationSpec createCXXHeader(Decl decl) {
+        if (decl == null) {
+            return null;
+        }
         IncludeEntry entry = getIncludeEntry(decl);
         if (entry == null) {
             return null;
@@ -1758,11 +1853,19 @@ public class FFIBindingGenerator {
         if (!javaName.isPrimitive()) {
             throw new IllegalStateException("Must be a primitive type, got " + javaName);
         }
-        String javaTypeName = javaName.toString();
-        if (javaTypeName.endsWith("_t")) {
-            javaTypeName = javaTypeName.substring(0, javaTypeName.length() - 2);
+        if (cxxName.endsWith("_t")) {
+            cxxName = cxxName.substring(0, cxxName.length() - 2);
         }
-        return getClassName(prependRootPackage("std"), javaTypeName + "_pointer_t");
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < cxxName.length(); ++index) {
+            char c = cxxName.charAt(index);
+            if (Character.isWhitespace(c) || c == '*') {
+                builder.append("_");
+            } else {
+                builder.append(c);
+            }
+        }
+        return getClassName(prependRootPackage("std"), builder.toString() + "_pointer_t");
     }
 
     private TypeName getPointerOfPrimitive(FFIType ffiType) {
@@ -1832,7 +1935,7 @@ public class FFIBindingGenerator {
         verifyVisibility(typedefNameDecl);
 
         QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
-        Type underlyingType = inspectTypedefType(underlyingQualType.getTypePtr());
+        Type underlyingType = underlyingQualType.getTypePtr();
         FFIType underlyingFFIType;
         try {
             underlyingFFIType = typeToFFIType(underlyingQualType);
@@ -1860,20 +1963,6 @@ public class FFIBindingGenerator {
         }
         String declName = typedefType.getDecl().getDeclName().getAsString().toJavaString();
         throw unsupportedAST("Unsupported TypedefType: " + declName + ", underlying type is: " + underlyingQualType.getAsString());
-    }
-
-    private Type inspectTypedefType(Type type) {
-        switch (type.getTypeClass()) {
-            case Typedef: {
-                TypedefType typedefType = TypedefType.dyn_cast(type);
-                TypedefNameDecl typedefNameDecl = typedefType.getDecl();
-                QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
-                return inspectTypedefType(underlyingQualType.getTypePtr());
-            }
-            default: {
-                return type;
-            }
-        }
     }
 
     /**
@@ -1999,17 +2088,47 @@ public class FFIBindingGenerator {
         return typeName;
     }
 
-    FFIType typeToFFIType(QualType qualType) {
+    private QualType simplifyCXXType(QualType qualType) {
         Type type = qualType.getTypePtr();
+        switch (type.getTypeClass()) {
+            case Typedef: {
+                TypedefType typedefType = TypedefType.dyn_cast(type);
+                TypedefNameDecl typedefNameDecl = typedefType.getDecl();
+                QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
+                QualType rtype = simplifyCXXType(underlyingQualType);
+                switch (rtype.getTypePtr().getTypeClass()) {
+                    // acceptable
+                    case Builtin:
+                    case TemplateTypeParm:
+                    case InjectedClassName:
+                        return rtype;
+                    default:
+                        return qualType;
+                }
+            }
+            default: {
+                return qualType;
+            }
+        }
+    }
+
+    FFIType typeToFFIType(QualType qualType) {
+        QualType simplifyQualType = simplifyCXXType(qualType);
+        Type type = simplifyQualType.getTypePtr();
         TypeName typeName = typeToTypeName(type);
-        FFIType key = new FFIType(qualType, typeName);
+        FFIType key = new FFIType(simplifyQualType, typeName);
         verifyDecl(key);
         FFIType ffiType = ffiTypeDictionary.get(key);
         if (ffiType != null) {
             return ffiType;
         }
-        if (type.getTypeClass() == TypeClass.TemplateTypeParm) {
-            return key; // no need to cache template parameter
+        // no need to cache:
+        //  - template parameter
+        //  - injected class name, which has already been generated.
+        switch (type.getTypeClass()) {
+            case TemplateTypeParm:
+            case InjectedClassName:
+                return key;
         }
         ffiTypeDictionary.put(key, key);
         return key;
@@ -2179,6 +2298,8 @@ public class FFIBindingGenerator {
                 return "bool";
             case "byte":
                 return "int8_t";
+            case "char":
+                return "char";
             case "short":
                 return "int16_t";
             case "int":
@@ -2206,10 +2327,11 @@ public class FFIBindingGenerator {
             case Bool:
                 return TypeName.BOOLEAN;
             case Char8:
-            case Char_S:
-            case SChar:
             case Char_U:
             case UChar:
+            case Char_S: // N.B. "char" will has kind Char_S
+                return TypeName.CHAR;
+            case SChar:
                 return TypeName.BYTE;
             case UShort:
             case Short:
@@ -2308,6 +2430,67 @@ public class FFIBindingGenerator {
         typeGen.succ();
     }
 
+    private void generateFFIPointer(CXXRecordDecl cxxRecordDecl) {
+        ClassName className = getJavaClassName(cxxRecordDecl);
+        if (exclude(className.canonicalName())) {
+            return;
+        }
+        TypeGen typeGen = getOrCreateTypeGen(className, cxxRecordDecl);
+        TypeSpec.Builder classBuilder = typeGen.builder;
+        List<TypeVariableName> typeVariableNames = getJavaTypeVariablesInContext(cxxRecordDecl.getDeclContext());
+        getJavaTypeVariablesOnDecl(cxxRecordDecl, typeVariableNames);
+        {
+            if (cxxRecordDecl.getNumBases() > 0) {
+                // build base class
+                CXXRecordDecl.base_class_iterator begin = cxxRecordDecl.bases_begin();
+                CXXRecordDecl.base_class_iterator end = cxxRecordDecl.bases_end();
+                for (; begin.notEquals(end); begin.next()) {
+                    try {
+                        addSuperinterface(classBuilder, begin.get().getType());
+                    } catch (UnsupportedASTException e) {
+                        // ignore this super if we cannot generate it
+                    }
+                }
+            }
+            {
+                if (cxxRecordDecl.hasUserDeclaredDestructor()) {
+                    CXXDestructorDecl destructorDecl = cxxRecordDecl.getDestructor();
+                    if (destructorDecl.getAccess().isPublicOrNone()) {
+                        classBuilder.addSuperinterface(ClassName.get(CXXPointer.class));
+                    } else {
+                        classBuilder.addSuperinterface(ClassName.get(FFIPointer.class));
+                    }
+                } else {
+                    classBuilder.addSuperinterface(ClassName.get(FFIPointer.class));
+                }
+            }
+        }
+        // build ctors
+        generateCtorMethods(cxxRecordDecl, typeGen, typeVariableNames);
+        // build fields
+        generateFields(cxxRecordDecl, classBuilder);
+        // build methods
+        List<CXXMethodDecl> staticMethods = new ArrayList<>();
+        generateMethods(cxxRecordDecl, typeGen, staticMethods);
+        // build static methods
+        generateStaticMethods(cxxRecordDecl, typeGen, staticMethods, typeVariableNames);
+
+        // associate the type variables
+        {
+            TypeSpec.Builder factoryClassBuilder = typeGen.getFactoryBuilderOrNull();
+            for (TypeVariableName tv: typeVariableNames) {
+                classBuilder.addTypeVariable(tv);
+                if (factoryClassBuilder != null) {
+                    factoryClassBuilder.addTypeVariable(tv);
+                }
+            }
+        }
+
+        addCXXHeader(typeGen);
+        // mark successful
+        typeGen.succ();
+    }
+
     private boolean isJavaObjectFinal(String name, String desc) {
         switch (name) {
             case "wait":
@@ -2320,6 +2503,10 @@ public class FFIBindingGenerator {
                 return desc.equals("");
         }
         return false;
+    }
+
+    private void generateFields(RecordDecl recordDecl, TypeGen typeGen) {
+        generateFields(recordDecl, typeGen.builder);
     }
 
     private void generateFields(RecordDecl recordDecl, TypeSpec.Builder classBuilder) {
@@ -2374,6 +2561,174 @@ public class FFIBindingGenerator {
                 classBuilder.addMethod(getter.build());
             } catch (UnsupportedASTException e) {
                 // simply ignore the field
+            }
+        }
+    }
+
+    private void generateCtorMethods(CXXRecordDecl cxxRecordDecl, TypeGen typeGen, List<TypeVariableName> typeVariableNames) {
+        TypeSpec.Builder factoryClassBuilder = null;
+        if (cxxRecordDecl.isAbstract()) {
+            return;
+        }
+        // build constructors
+        CXXRecordDecl.ctor_iterator begin = cxxRecordDecl.ctor_begin();
+        CXXRecordDecl.ctor_iterator end = cxxRecordDecl.ctor_end();
+        TypeName returnType = typeGen.className;
+        if (!typeVariableNames.isEmpty()) {
+            returnType = ParameterizedTypeName.get(typeGen.className, typeVariableNames.stream().toArray(TypeName[]::new));
+        }
+        Set<String> methods = new HashSet<>();
+        for (; begin.notEquals(end); begin.next()) {
+            try {
+                CXXConstructorDecl ctorDecl = begin.get();
+                if (!ctorDecl.getAccess().isPublicOrNone()) {
+                    continue;
+                }
+                if (!ctorDecl.isUserProvided()) {
+                    continue;
+                }
+                if (ctorDecl.isDeleted()) {
+                    continue;
+                }
+                if (ctorDecl.isMoveConstructor()) {
+                    // TODO: move factor needs special handling, see std::move
+                    continue;
+                }
+
+                // generate a method declaration in the "Library" interface.
+                MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("create")
+                        .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
+                buildReturnAndParamTypes(methodBuilder, returnType, ctorDecl);
+
+                if (factoryClassBuilder == null) {
+                    factoryClassBuilder = typeGen.getFactoryBuilder();
+                }
+                MethodSpec methodSpec = methodBuilder.build();
+                if (!methods.add(methodSignature(methodSpec))) {
+                    continue;
+                }
+                factoryClassBuilder.addMethod(methodSpec);
+            }
+            catch (UnsupportedASTException e) {
+            }
+        }
+    }
+
+    private void generateMethods(CXXRecordDecl cxxRecordDecl, TypeGen typeGen, List<CXXMethodDecl> staticMethods) {
+        // build methods
+        CXXRecordDecl.method_iterator begin = cxxRecordDecl.method_begin();
+        CXXRecordDecl.method_iterator end = cxxRecordDecl.method_end();
+        Set<String> methods = new HashSet<>();
+        for (; begin.notEquals(end); begin.next()) {
+            try {
+                CXXMethodDecl methodDecl = begin.get();
+                if (!methodDecl.getAccess().isPublicOrNone()) {
+                    continue;
+                }
+                if (!methodDecl.isUserProvided()) {
+                    continue;
+                }
+                if (methodDecl.isDeleted() || methodDecl.isPure()) {
+                    continue;
+                }
+                if (methodDecl.getDeclKind() == Decl.Kind.CXXConstructor) {
+                    continue;
+                }
+                if (methodDecl.getDeclKind() == Decl.Kind.CXXDestructor) {
+                    continue;
+                }
+                if (methodDecl.getDeclKind() == Decl.Kind.CXXConversion) {
+                    continue;
+                }
+                if (methodDecl.getRefQualifier() == RefQualifierKind.RValue) {
+                    // rvalue ref qualifier is not supported
+                    Logger.warn("the rvalue ref qualifier on method is not supported: %s",
+                            methodDecl.getNameAsString().toJavaString());
+                    continue;
+                }
+                if (methodDecl.isStatic()) {
+                    if (staticMethods != null) {
+                        staticMethods.add(methodDecl);
+                    }
+                    continue;
+                }
+                MethodSpec.Builder methodBuilder;
+                String methodName;
+                if (methodDecl.isOverloadedOperator()) {
+                    OverloadedOperatorKind kind = methodDecl.getOverloadedOperator();
+                    methodName = kind.toString();
+                    methodBuilder = MethodSpec.methodBuilder(methodName);
+                    methodBuilder.addAnnotation(AnnotationSpec.builder(CXXOperator.class)
+                            .addMember("value", "$S", kind.getOperatorSpelling()).build());
+                    continue; // TODO: skip operator
+                } else {
+                    methodName = methodDecl.getNameAsString().toJavaString();
+                    methodBuilder = MethodSpec.methodBuilder(methodName);
+                }
+                methodBuilder.addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
+                buildReturnAndParamTypes(methodBuilder, methodDecl);
+                MethodSpec methodSpec = methodBuilder.build();
+                if (!methods.add(methodSignature(methodSpec))) {
+                    continue;
+                }
+                if (exclude(typeGen.className.canonicalName(), methodName)) {
+                    continue;
+                }
+                typeGen.builder.addMethod(methodSpec);
+            } catch (ExcludedException e) {
+            } catch (UnsupportedASTException e) {
+                Logger.error("Failed to generate for method %s::%s, %s",
+                        typeGen.className.canonicalName(), begin.get().getNameAsString(), e.getMessage());
+                if (Logger.verbose()) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private void generateStaticMethods(CXXRecordDecl cxxRecordDecl, TypeGen typeGen, List<CXXMethodDecl> staticMethods, List<TypeVariableName> typeVariableNames) {
+        {
+            // static methods in template classes are not supported, see GH-24, add a logger
+            if (!staticMethods.isEmpty() && !typeVariableNames.isEmpty()) {
+                Logger.warn("TODO: static methods inside template clasess are not supported: %s", typeGen.className);
+            }
+            if (!staticMethods.isEmpty() && typeVariableNames.isEmpty()) {
+                String cxxName = getCXXName(cxxRecordDecl);
+                TypeSpec.Builder libraryBuilder = typeGen.getLibraryBuilder(cxxName);
+                Set<String> libraryMethods = new HashSet<>();
+                for (CXXMethodDecl methodDecl : staticMethods) {
+                    String methodName = methodDecl.getNameAsString().toJavaString();
+                    try {
+                        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder(methodName);
+                        methodBuilder.addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
+                        buildReturnAndParamTypes(methodBuilder, methodDecl);
+                        {
+                            FFIType ffiType = typeToFFIType(methodDecl.getReturnType());
+                            if (ffiType.isTemplateVariableDependent()) {
+                                throw unsupportedAST("TODO: static methods with type variables are not supported.");
+                            }
+
+                            int numParams = methodDecl.getNumParams();
+                            for (int i = 0; i < numParams; i++) {
+                                ParmVarDecl parmVarDecl = methodDecl.getParamDecl(i);
+                                FFIType paramFFIType = typeToFFIType(parmVarDecl.getTypeSourceInfo().getType());
+                                if (paramFFIType.isTemplateVariableDependent()) {
+                                    throw unsupportedAST("TODO: static methods with type variables are not supported.");
+                                }
+                            }
+                        }
+                        MethodSpec methodSpec = methodBuilder.build();
+                        if (!libraryMethods.add(methodSignature(methodSpec))) {
+                            continue;
+                        }
+                        if (exclude(typeGen.className.canonicalName(), methodName)) {
+                            continue;
+                        }
+                        libraryBuilder.addMethod(methodSpec);
+                    } catch (UnsupportedASTException e) {
+                        Logger.debug("Failed to generate static method %s::%s: %s", cxxName, methodName, e);
+                    }
+                }
             }
         }
     }
@@ -2523,218 +2878,6 @@ public class FFIBindingGenerator {
         }
         sb.append(")");
         return sb.toString();
-    }
-
-    private void generateFFIPointer(CXXRecordDecl cxxRecordDecl) {
-        ClassName className = getJavaClassName(cxxRecordDecl);
-        if (exclude(className.canonicalName())) {
-            return;
-        }
-        TypeGen typeGen = getOrCreateTypeGen(className, cxxRecordDecl);
-        TypeSpec.Builder classBuilder = typeGen.builder;
-        TypeSpec.Builder factoryClassBuilder = null;
-        List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(cxxRecordDecl.getDeclContext());
-        getJavaTypeVariablesOnDecl(cxxRecordDecl, typeVariableNameList);
-        {
-            if (cxxRecordDecl.getNumBases() > 0) {
-                // build base class
-                CXXRecordDecl.base_class_iterator begin = cxxRecordDecl.bases_begin();
-                CXXRecordDecl.base_class_iterator end = cxxRecordDecl.bases_end();
-                for (; begin.notEquals(end); begin.next()) {
-                    try {
-                        addSuperinterface(classBuilder, begin.get().getType());
-                    } catch (UnsupportedASTException e) {
-                        // ignore this super if we cannot generate it
-                    }
-                }
-            }
-            {
-                if (cxxRecordDecl.hasUserDeclaredDestructor()) {
-                    CXXDestructorDecl destructorDecl = cxxRecordDecl.getDestructor();
-                    if (destructorDecl.getAccess().isPublicOrNone()) {
-                        classBuilder.addSuperinterface(ClassName.get(CXXPointer.class));
-                    } else {
-                        classBuilder.addSuperinterface(ClassName.get(FFIPointer.class));
-                    }
-                } else {
-                    classBuilder.addSuperinterface(ClassName.get(FFIPointer.class));
-                }
-            }
-        }
-        if (!cxxRecordDecl.isAbstract()) {
-            List<MethodSpec.Builder> ctorBuilders = new ArrayList<>();
-            // build constructors
-            CXXRecordDecl.ctor_iterator begin = cxxRecordDecl.ctor_begin();
-            CXXRecordDecl.ctor_iterator end = cxxRecordDecl.ctor_end();
-            TypeName returnType = className;
-            if (!typeVariableNameList.isEmpty()) {
-                returnType = ParameterizedTypeName.get(className, typeVariableNameList.stream().toArray(TypeName[]::new));
-            }
-            Set<String> methods = new HashSet<>();
-            for (; begin.notEquals(end); begin.next()) {
-                try {
-                    CXXConstructorDecl ctorDecl = begin.get();
-                    if (!ctorDecl.getAccess().isPublicOrNone()) {
-                        continue;
-                    }
-                    if (!ctorDecl.isUserProvided()) {
-                        continue;
-                    }
-                    if (ctorDecl.isDeleted()) {
-                        continue;
-                    }
-                    if (ctorDecl.isMoveConstructor()) {
-                        // TODO: move factor needs special handling, see std::move
-                        continue;
-                    }
-
-                    // generate a method declaration in the "Library" interface.
-                    MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("create")
-                            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
-                    buildReturnAndParamTypes(methodBuilder, returnType, ctorDecl);
-
-                    if (factoryClassBuilder == null) {
-                        factoryClassBuilder = typeGen.getFactoryBuilder();
-                    }
-                    MethodSpec methodSpec = methodBuilder.build();
-                    if (!methods.add(methodSignature(methodSpec))) {
-                        continue;
-                    }
-                    factoryClassBuilder.addMethod(methodSpec);
-                } catch (UnsupportedASTException e) {
-                }
-            }
-        }
-        {
-            // build fields
-            generateFields(cxxRecordDecl, classBuilder);
-        }
-        List<CXXMethodDecl> staticMethods = new ArrayList<>();
-        {
-            // build methods
-            CXXRecordDecl.method_iterator begin = cxxRecordDecl.method_begin();
-            CXXRecordDecl.method_iterator end = cxxRecordDecl.method_end();
-            Set<String> methods = new HashSet<>();
-            for (; begin.notEquals(end); begin.next()) {
-                try {
-                    CXXMethodDecl methodDecl = begin.get();
-                    if (!methodDecl.getAccess().isPublicOrNone()) {
-                        continue;
-                    }
-                    if (!methodDecl.isUserProvided()) {
-                        continue;
-                    }
-                    if (methodDecl.isDeleted() || methodDecl.isPure()) {
-                        continue;
-                    }
-                    if (methodDecl.getDeclKind() == Decl.Kind.CXXConstructor) {
-                        continue;
-                    }
-                    if (methodDecl.getDeclKind() == Decl.Kind.CXXDestructor) {
-                        continue;
-                    }
-                    if (methodDecl.getDeclKind() == Decl.Kind.CXXConversion) {
-                        continue;
-                    }
-                    if (methodDecl.getRefQualifier() == RefQualifierKind.RValue) {
-                        // rvalue ref qualifier is not supported
-                        Logger.warn("the rvalue ref qualifier on method is not supported: %s",
-                                methodDecl.getNameAsString().toJavaString());
-                        continue;
-                    }
-                    if (methodDecl.isStatic()) {
-                        staticMethods.add(methodDecl);
-                        continue;
-                    }
-                    MethodSpec.Builder methodBuilder;
-                    String methodName;
-                    if (methodDecl.isOverloadedOperator()) {
-                        OverloadedOperatorKind kind = methodDecl.getOverloadedOperator();
-                        methodName = kind.toString();
-                        methodBuilder = MethodSpec.methodBuilder(methodName);
-                        methodBuilder.addAnnotation(AnnotationSpec.builder(CXXOperator.class)
-                                .addMember("value", "$S", kind.getOperatorSpelling()).build());
-                        continue; // TODO: skip operator
-                    } else {
-                        methodName = methodDecl.getNameAsString().toJavaString();
-                        methodBuilder = MethodSpec.methodBuilder(methodName);
-                    }
-                    methodBuilder.addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
-                    buildReturnAndParamTypes(methodBuilder, methodDecl);
-                    MethodSpec methodSpec = methodBuilder.build();
-                    if (!methods.add(methodSignature(methodSpec))) {
-                        continue;
-                    }
-                    if (exclude(className.canonicalName(), methodName)) {
-                        continue;
-                    }
-                    classBuilder.addMethod(methodSpec);
-                } catch (ExcludedException e) {
-                } catch (UnsupportedASTException e) {
-                    Logger.error("Failed to generate for method %s::%s, %s",
-                            className.canonicalName(), begin.get().getNameAsString(), e.getMessage());
-                    if (Logger.verbose()) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-        {
-            // static methods in template classes are not supported, see GH-24, add a logger
-            if (!staticMethods.isEmpty() && !typeVariableNameList.isEmpty()) {
-                Logger.warn("TODO: static methods inside template clasess are not supported: %s", className);
-            }
-            if (!staticMethods.isEmpty() && typeVariableNameList.isEmpty()) {
-                String cxxName = getCXXName(cxxRecordDecl);
-                TypeSpec.Builder libraryBuilder = typeGen.getLibraryBuilder(cxxName);
-                Set<String> libraryMethods = new HashSet<>();
-                for (CXXMethodDecl methodDecl : staticMethods) {
-                    String methodName = methodDecl.getNameAsString().toJavaString();
-                    try {
-                        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder(methodName);
-                        methodBuilder.addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
-                        buildReturnAndParamTypes(methodBuilder, methodDecl);
-                        {
-                            FFIType ffiType = typeToFFIType(methodDecl.getReturnType());
-                            if (ffiType.isTemplateVariableDependent()) {
-                                throw unsupportedAST("TODO: static methods with type variables are not supported.");
-                            }
-
-                            int numParams = methodDecl.getNumParams();
-                            for (int i = 0; i < numParams; i++) {
-                                ParmVarDecl parmVarDecl = methodDecl.getParamDecl(i);
-                                FFIType paramFFIType = typeToFFIType(parmVarDecl.getTypeSourceInfo().getType());
-                                if (paramFFIType.isTemplateVariableDependent()) {
-                                    throw unsupportedAST("TODO: static methods with type variables are not supported.");
-                                }
-                            }
-                        }
-                        MethodSpec methodSpec = methodBuilder.build();
-                        if (!libraryMethods.add(methodSignature(methodSpec))) {
-                            continue;
-                        }
-                        if (exclude(className.canonicalName(), methodName)) {
-                            continue;
-                        }
-                        libraryBuilder.addMethod(methodSpec);
-                    } catch (UnsupportedASTException e) {
-                        Logger.debug("Failed to generate static method %s::%s: %s", cxxName, methodName, e);
-                    }
-                }
-            }
-        }
-        {
-            for (TypeVariableName tv: typeVariableNameList) {
-                classBuilder.addTypeVariable(tv);
-                if (factoryClassBuilder != null) {
-                    factoryClassBuilder.addTypeVariable(tv);
-                }
-            }
-        }
-
-        addCXXHeader(typeGen);
-        // mark successful
-        typeGen.succ();
     }
 
     /**
@@ -3016,7 +3159,8 @@ public class FFIBindingGenerator {
     }
 
     private String getCXXNameInternal(QualType qualType, boolean addConst) {
-        Type type = qualType.getTypePtr();
+        QualType simplifyQualType = simplifyCXXType(qualType);
+        Type type = simplifyQualType.getTypePtr();
         TypeClass typeClass = type.getTypeClass();
         switch (typeClass) {
             case Builtin: {

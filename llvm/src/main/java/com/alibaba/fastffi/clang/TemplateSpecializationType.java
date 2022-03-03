@@ -33,4 +33,11 @@ public interface TemplateSpecializationType extends Type {
     int getNumArgs();
     @CXXReference TemplateArgument getArg(int idx);
     @CXXValue TemplateName getTemplateName();
+    @CXXValue QualType getAliasedType();
+
+    boolean isSugared();
+    @CXXValue QualType desugar();
+
+    boolean isCurrentInstantiation();
+    boolean isTypeAlias();
 }

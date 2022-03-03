@@ -8,7 +8,6 @@ import com.alibaba.fastffi.FFITypeFactory;
 import com.alibaba.fastffi.clang.Decl;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -37,7 +36,7 @@ public class TypeGen {
 
     final ClassName className;
     final TypeSpec.Builder builder;
-    final Decl decl;
+    final Decl decl;  // might be null, e.g., when generating oracles for int*, etc.
     TypeSpec typeSpec;
     Status status;
 
@@ -49,6 +48,7 @@ public class TypeGen {
 
     private TypeSpec.Builder factoryBuilder;
     private TypeSpec.Builder libraryBuilder;
+
     TypeGen(ClassName className, TypeSpec.Builder builder, Decl decl, String fileComment) {
         this(className, builder, decl, fileComment, false);
     }
@@ -186,6 +186,10 @@ public class TypeGen {
         return factoryBuilder;
     }
 
+    public TypeSpec.Builder getFactoryBuilderOrNull() {
+        return factoryBuilder;
+    }
+
     public TypeSpec.Builder getLibraryBuilder(String cxxName) {
         if (libraryBuilder == null) {
             ClassName libraryClassName = className.nestedClass("Library");
@@ -199,6 +203,10 @@ public class TypeGen {
                     .initializer("$T.getLibrary($T.class)", FFITypeFactory.class, libraryClassName)
                     .build());
         }
+        return libraryBuilder;
+    }
+
+    public TypeSpec.Builder getLibraryBuilderOrNull() {
         return libraryBuilder;
     }
 

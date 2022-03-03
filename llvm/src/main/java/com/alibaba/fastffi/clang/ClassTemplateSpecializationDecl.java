@@ -30,4 +30,9 @@ public interface ClassTemplateSpecializationDecl extends CXXRecordDecl {
 
     ClassTemplateDecl getSpecializedTemplate();
     @CXXReference TemplateArgumentList getTemplateArgs();
+
+    TemplateSpecializationKind getSpecializationKind();
+    boolean isExplicitSpecialization();
+    boolean isClassScopeExplicitSpecialization();
+    boolean isExplicitInstantiationOrSpecialization();
 }

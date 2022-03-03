@@ -16,18 +16,19 @@
 package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.CXXOperator;
 import com.alibaba.fastffi.CXXReference;
-import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.llvm.LLVMPointer;
 
 @FFIGen
-@FFITypeAlias("clang::TemplateArgumentList")
-@CXXHead("clang/AST/DeclTemplate.h")
-public interface TemplateArgumentList extends LLVMPointer {
+@FFITypeAlias("llvm::ArrayRef<clang::TemplateArgument>")
+@CXXHead({"llvm/ADT/APInt.h", "clang/Basic/LLVM.h", "clang/AST/TemplateBase.h"})
+public interface TemplateArgumentArray extends LLVMPointer
+{
     int size();
-    @CXXReference TemplateArgument get(int idx);
 
-    @CXXValue TemplateArgumentArray asArray();
+    @CXXOperator("[]")
+    @CXXReference TemplateArgument get(int idx);
 }

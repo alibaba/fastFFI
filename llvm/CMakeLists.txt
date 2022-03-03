@@ -20,6 +20,12 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
 SET(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -fprofile-arcs -ftest-coverage")
 SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -g")
 
+find_program(ccache_EXECUTABLE ccache)
+if(ccache_EXECUTABLE)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${ccache_EXECUTABLE})
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${ccache_EXECUTABLE})
+endif(ccache_EXECUTABLE)
+
 file(GLOB SOURCES "target/generated-sources/annotations/*.cc")
 
 set(LIBNAME "llvm4jni")

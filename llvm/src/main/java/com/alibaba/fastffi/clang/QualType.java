@@ -30,10 +30,29 @@ import javax.annotation.Nonnull;
 public interface QualType extends FFIPointer {
     @Nonnull Type getTypePtr();
     Type getTypePtrOrNull();
+
     boolean isCanonical();
+    boolean isCanonicalAsParam();
     boolean isNull();
-    boolean isConstQualified();
     boolean isLocalConstQualified();
+    boolean isConstQualified();
+    boolean isLocalRestrictQualified();
+    boolean isRestrictQualified();
+    boolean isLocalVolatileQualified();
+    boolean isVolatileQualified();
+    boolean hasLocalQualifiers();
+    boolean hasQualifiers();
+    boolean hasLocalNonFastQualifiers();
+
+    @CXXValue Qualifiers getLocalQualifiers();
+    @CXXValue Qualifiers getQualifiers();
+    int getLocalCVRQualifiers();
+    int getCVRQualifiers();
+
+    @CXXValue QualType getCanonicalType();
+    @CXXValue QualType getLocalUnqualifiedType();
+    @CXXValue QualType getUnqualifiedType();
+
     @CXXValue StdString getAsString();
     IdentifierInfo getBaseTypeIdentifier();
 }
