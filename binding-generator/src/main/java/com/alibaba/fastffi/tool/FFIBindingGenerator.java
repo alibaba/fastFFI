@@ -91,6 +91,7 @@ import com.alibaba.fastffi.clang.Type;
 import com.alibaba.fastffi.clang.TypeAliasDecl;
 import com.alibaba.fastffi.clang.TypeAliasTemplateDecl;
 import com.alibaba.fastffi.clang.TypeClass;
+import com.alibaba.fastffi.clang.TypedefDecl;
 import com.alibaba.fastffi.clang.TypedefNameDecl;
 import com.alibaba.fastffi.clang.TypedefType;
 import com.alibaba.fastffi.clang.tooling.ClangTool;
@@ -427,7 +428,7 @@ public class FFIBindingGenerator {
         }
         classExcludes.add(Pattern.compile(exclude));
     }
-    
+
     static boolean exclude(String className, String methodName) {
         return exclude(methodExcludes, className + "::" + methodName);
     }
@@ -765,10 +766,7 @@ public class FFIBindingGenerator {
         return AnnotationSpec.builder(FFIExpr.class).addMember("value", "$S", expr).build();
     }
 
-    private boolean generateTypedef(FFIType type) {
-        TypedefType typedefType = TypedefType.dyn_cast(type.cxxType);
-        TypedefNameDecl typedefNameDecl = typedefType.getDecl();
-
+    private boolean generateTypedef(TypedefNameDecl typedefNameDecl, FFIType type) {
         ClassName aliasJavaName = getJavaClassName(typedefNameDecl);
         String aliasCXXName = getCXXName(typedefNameDecl);
         TypeGen typeGen = getOrCreateTypeGenForFFIPointer(aliasJavaName, aliasCXXName, type);
@@ -779,6 +777,7 @@ public class FFIBindingGenerator {
         QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
         TypeSpec.Builder factoryClassBuilder = null;
         List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(typedefNameDecl.getDeclContext());
+        getJavaTypeVariablesOnDecl(typedefNameDecl, typeVariableNameList);
 
         try {
             // If the underlying type is not supported, we just skip generating the `get()` method.
@@ -788,34 +787,36 @@ public class FFIBindingGenerator {
             }
 
             // part 1: genenrate getter/setter
-            MethodSpec.Builder getter = MethodSpec.methodBuilder("get")
-                    .returns(underlyingFFIType.javaType)
-                    .addModifiers(Modifier.ABSTRACT, Modifier.PUBLIC);
-            MethodSpec.Builder setter = MethodSpec.methodBuilder("set")
-                    .returns(TypeName.VOID)
-                    .addParameter(underlyingFFIType.javaType, "__value")
-                    .addModifiers(Modifier.ABSTRACT, Modifier.PUBLIC);
-            if (underlyingFFIType.isPointer() || underlyingFFIType.isReference()) {
-                // cast the dereference of `this' to the aliased type pointer
-                getter.addAnnotation(ffiExpr("(*{0})"));
-                setter.addAnnotation(ffiExpr("*{0} = (" + aliasCXXName + "){1}"));
-            } else if (underlyingFFIType.isPrimitive() || underlyingFFIType.isEnum()) {
-                // return the primitive dereference value
-                getter.addAnnotation(ffiExpr("(*{0})"));
-                setter.addAnnotation(ffiExpr("*{0} = (" + aliasCXXName + "){1}"));
-            } else {
-                if (underlyingFFIType.javaType.isPrimitive()) {
-                    throw new IllegalStateException("Must be a FFIPointer");
-                }
-                // cast `this' to the aliased type pointer
-                getter.addAnnotation(ffiExpr("{0}"));
+            {
+                MethodSpec.Builder getter = MethodSpec.methodBuilder("get")
+                        .returns(underlyingFFIType.javaType)
+                        .addModifiers(Modifier.ABSTRACT, Modifier.PUBLIC);
+                MethodSpec.Builder setter = MethodSpec.methodBuilder("set")
+                        .returns(TypeName.VOID)
+                        .addParameter(underlyingFFIType.javaType, "__value")
+                        .addModifiers(Modifier.ABSTRACT, Modifier.PUBLIC);
+                if (underlyingFFIType.isPointer() || underlyingFFIType.isReference()) {
+                    // cast the dereference of `this' to the aliased type pointer
+                    getter.addAnnotation(ffiExpr("(*{0})"));
+                    setter.addAnnotation(ffiExpr("*{0} = (" + aliasCXXName + "){1}"));
+                } else if (underlyingFFIType.isPrimitive() || underlyingFFIType.isEnum()) {
+                    // return the primitive dereference value
+                    getter.addAnnotation(ffiExpr("(*{0})"));
+                    setter.addAnnotation(ffiExpr("*{0} = (" + aliasCXXName + "){1}"));
+                } else {
+                    if (underlyingFFIType.javaType.isPrimitive()) {
+                        throw new IllegalStateException("Must be a FFIPointer");
+                    }
+                    // cast `this' to the aliased type pointer
+                    getter.addAnnotation(ffiExpr("{0}"));
 
-                // non- primitive types: `set` is not supported.
-                setter = null;
-            }
-            typeGen.builder.addMethod(getter.build());
-            if (setter != null) {
-                typeGen.builder.addMethod(setter.build());
+                    // non- primitive types: `set` is not supported.
+                    setter = null;
+                }
+                typeGen.builder.addMethod(getter.build());
+                if (setter != null) {
+                    typeGen.builder.addMethod(setter.build());
+                }
             }
 
             // part 2: generate creating from alias pointers
@@ -859,6 +860,15 @@ public class FFIBindingGenerator {
         addCXXHeader(typeGen);
         typeGen.succ();
         return true;
+    }
+
+    private boolean generateTypedef(TypedefNameDecl typedefNameDecl) {
+        return generateTypedef(typedefToFFIType(typedefNameDecl));
+    }
+
+    private boolean generateTypedef(FFIType type) {
+        TypedefNameDecl typedefNameDecl = TypedefType.dyn_cast(type.cxxType).getDecl();
+        return generateTypedef(typedefNameDecl, type);
     }
 
     private ClassName getOrCreatePointerOfPrimitive(FFIType ffiType) {
@@ -1420,11 +1430,13 @@ public class FFIBindingGenerator {
                     generateClassTemplate((ClassTemplateDecl) decl);
                     break;
                 case TypeAlias:
-                    generateTypeAlias((TypeAliasDecl) decl);
+                    generateTypedef((TypeAliasDecl) decl);
                     break;
                 case TypeAliasTemplate:
-                    generateTypeAliasTemplate((TypeAliasTemplateDecl) decl);
+                    generateTypedef(((TypeAliasTemplateDecl) decl).getTemplatedDecl());
                     break;
+                case Typedef:
+                    generateTypedef((TypedefDecl) decl);
                 default:
                     break;
             }
@@ -1439,10 +1451,11 @@ public class FFIBindingGenerator {
                 for (; begin.notEquals(end); begin.next()) {
                     // mark parent changed of any enclosing element is changed
                     // TODO: begin.get() may be null.
-                    if (begin.get() == null) {
+                    Decl child = begin.get();
+                    if (child == null || child.isImplicit()) {
                         continue;
                     }
-                    changed |= generate(begin.get());
+                    changed |= generate(child);
                 }
             }
         } catch (ExcludedException e) {
@@ -1664,31 +1677,6 @@ public class FFIBindingGenerator {
         generate(classTemplateDecl.getTemplatedDecl());
     }
 
-    void generateTypeAlias(TypeAliasDecl typeAliasDecl) {
-        TypeGen typeGen = getOrCreateTypeGen(typeAliasDecl);
-        if (!typeGen.isNone()) {
-            return;
-        }
-
-        // the typedef type is a CXXPointer
-        typeGen.builder.addSuperinterface(CXXPointer.class);
-
-        // add type variables
-        List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(typeAliasDecl.getDeclContext());
-        getJavaTypeVariablesOnDecl(typeAliasDecl, typeVariableNameList);
-        for (TypeVariableName tv: typeVariableNameList) {
-            typeGen.builder.addTypeVariable(tv);
-        }
-
-        // mark succ
-        addCXXHeader(typeGen);
-        typeGen.succ();
-    }
-
-    void generateTypeAliasTemplate(TypeAliasTemplateDecl typeAliasTemplateDecl) {
-        generate(typeAliasTemplateDecl.getTemplatedDecl());
-    }
-
     UnsupportedASTException unsupportedAST(String message) {
         return new UnsupportedASTException(message);
     }
@@ -1856,16 +1844,7 @@ public class FFIBindingGenerator {
         if (cxxName.endsWith("_t")) {
             cxxName = cxxName.substring(0, cxxName.length() - 2);
         }
-        StringBuilder builder = new StringBuilder();
-        for (int index = 0; index < cxxName.length(); ++index) {
-            char c = cxxName.charAt(index);
-            if (Character.isWhitespace(c) || c == '*') {
-                builder.append("_");
-            } else {
-                builder.append(c);
-            }
-        }
-        return getClassName(prependRootPackage("std"), builder.toString() + "_pointer_t");
+        return getClassName(prependRootPackage("std"), 'C' + capitalizeCXXName(cxxName));
     }
 
     private TypeName getPointerOfPrimitive(FFIType ffiType) {
@@ -1927,11 +1906,10 @@ public class FFIBindingGenerator {
      *     where each type alias has a Java binding. Java does not support type alias
      *     so we use inheritance to support type alias.</li>
      * </ul>
-     * @param typedefType
+     * @param typedefNameDecl
      * @return
      */
-    private TypeName getJavaTypeForTypedefType(TypedefType typedefType) {
-        TypedefNameDecl typedefNameDecl = typedefType.getDecl();
+    private TypeName getJavaTypeForTypedefType(TypedefNameDecl typedefNameDecl) {
         verifyVisibility(typedefNameDecl);
 
         QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
@@ -1961,8 +1939,12 @@ public class FFIBindingGenerator {
         if (underlyingFFIType.isTemplateVariableDependent()) {
             return underlyingFFIType.javaType;
         }
-        String declName = typedefType.getDecl().getDeclName().getAsString().toJavaString();
+        String declName = typedefNameDecl.getDeclName().getAsString().toJavaString();
         throw unsupportedAST("Unsupported TypedefType: " + declName + ", underlying type is: " + underlyingQualType.getAsString());
+    }
+
+    private TypeName getJavaTypeForTypedefType(TypedefType typedefType) {
+        return getJavaClassName(typedefType.getDecl());
     }
 
     /**
@@ -2134,6 +2116,12 @@ public class FFIBindingGenerator {
         return key;
     }
 
+    FFIType typedefToFFIType(TypedefNameDecl typedefNameDecl) {
+        ASTContext astContext = typedefNameDecl.getASTContext();
+        QualType type = astContext.getTypedefType(typedefNameDecl, typedefNameDecl.getUnderlyingType());
+        return typeToFFIType(type);
+    }
+
     private void verifyVisibility(Decl decl) {
         if (!decl.getAccess().isPublicOrNone()) {
             throw unsupportedAST("Cannot find non-public decl: " + decl);
@@ -2290,6 +2278,9 @@ public class FFIBindingGenerator {
     }
 
     static String getCXXTypeName(TypeName javaType) {
+        if (javaType == null) {
+            return null;
+        }
         String javaTypeName = javaType.toString();
         switch (javaTypeName) {
             case "void":
@@ -3441,15 +3432,17 @@ public class FFIBindingGenerator {
         final int letter_than = Character.codePointAt("<", 0);
         final int greater_than = Character.codePointAt(">", 0);
         final int underscore = Character.codePointAt("_", 0);
+        final int star = Character.codePointAt("*", 0);
         for (int i = 0; i < name.length(); ++i) {
             final int codepoint = name.codePointAt(i);
-            if (Character.isWhitespace(codepoint) || codepoint == comma || codepoint == colon ||
-                    codepoint == letter_than || codepoint == greater_than || codepoint == underscore) {
+            if (Character.isWhitespace(codepoint) ||
+                    codepoint == comma || codepoint == colon ||
+                    codepoint == letter_than || codepoint == greater_than ||
+                    codepoint == underscore || codepoint == star) {
                 toflip = true;
             } else {
                 if (toflip) {
-                    final int capcodepoint = Character.toTitleCase(codepoint);
-                    builder.append(Character.toChars(capcodepoint));
+                    builder.append(Character.toChars(Character.toTitleCase(codepoint)));
                     toflip = false;
                 } else {
                     builder.append(Character.toChars(codepoint));

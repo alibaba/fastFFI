@@ -19,6 +19,7 @@ import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
 @FFITypeAlias("clang::TagDecl")
@@ -28,9 +29,15 @@ public interface TagDecl extends TypeDecl, DeclContext {
         return DeclCasting.INSTANCE.dyn_cast(decl, (TagDecl) null);
     }
 
+    @CXXValue SourceRange getBraceRange();
+    @CXXValue SourceRange getSourceRange();
+    @CXXValue StdString getQualifiedNameAsString();
+
     TagDecl getDefinition();
     Decl getPreviousDecl();
     Decl getMostRecentDecl();
+    TagDecl getCanonicalDecl();
+
     boolean isFirstDecl();
     boolean isThisDeclarationADefinition();
     boolean isCompleteDefinition();

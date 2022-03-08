@@ -33,5 +33,33 @@ public interface ASTContext extends CXXPointer {
     @CXXReference SourceManager getSourceManager();
     @CXXReference PrintingPolicy getPrintingPolicy();
 
+    long getASTAllocatedMemory();
+    long getSideTableAllocatedMemory();
+    Decl getPrimaryMergedDecl(Decl D);
+    TypedefDecl getInt128Decl();
+    TypedefDecl getUInt128Decl();
+    @CXXValue QualType getRestrictType(@CXXValue QualType T);
+    @CXXValue QualType getVolatileType(@CXXValue QualType T);
+    @CXXValue QualType getConstType(@CXXValue QualType T);
+
+    @CXXValue QualType getPointerType(@CXXValue QualType T);
+    @CXXValue QualType getAdjustedType(@CXXValue QualType Orig, @CXXValue QualType New);
+    @CXXValue QualType getLValueReferenceType(@CXXValue QualType T, boolean SpelledAsLValue);
+    @CXXValue QualType getRValueReferenceType(@CXXValue QualType T);
+    @CXXValue QualType getTypeDeclType(TypeDecl Decl, TypeDecl PrevDecl);
+    @CXXValue QualType getTypedefType(TypedefNameDecl Decl, @CXXValue QualType Underlying);
+    @CXXValue QualType getRecordType(RecordDecl Decl);
+
+    @CXXValue QualType getEnumType(EnumDecl Decl);
+    @CXXValue QualType getTypeOfType(@CXXValue QualType t);
+
+    @CXXValue QualType getWCharType();
+    @CXXValue QualType getWideCharType();
+    @CXXValue QualType getSignedWCharType();
+    @CXXValue QualType getUnsignedWCharType();
+    @CXXValue QualType getWIntType();
+    @CXXValue QualType getIntPtrType();
+    @CXXValue QualType getUIntPtrType();
+
     @CXXReference SmallVectorImpl<Type> getTypes();
 }
