@@ -62,7 +62,7 @@ public interface Decl extends LLVMPointer {
     boolean hasAttrs();
     @CXXReference AttrVec getAttrs();
 
-    void dump(@CXXReference StringOStream Out, boolean Deserialize, ASTDumpOutputFormat OutputFormat);
+    void dump(@CXXReference StringOStream Out, boolean Deserialize, @CXXValue ASTDumpOutputFormat OutputFormat);
 
     default String dump(ASTDumpOutputFormat OutputFormat) {
         StdString out = StdString.create();
