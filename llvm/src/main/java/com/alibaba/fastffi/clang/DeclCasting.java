@@ -19,10 +19,8 @@ import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.CXXTemplate;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFILibrary;
-import com.alibaba.fastffi.FFINameAlias;
 import com.alibaba.fastffi.FFISkip;
 import com.alibaba.fastffi.FFITypeFactory;
-import com.alibaba.fastffi.llvm.ValueCastingGen;
 
 /**
  * Casting from Type to a proper subtype of Type

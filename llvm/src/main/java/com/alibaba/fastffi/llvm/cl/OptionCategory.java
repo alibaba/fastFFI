@@ -24,12 +24,13 @@ import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIGetter;
 import com.alibaba.fastffi.FFINameAlias;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 import com.alibaba.fastffi.llvm.StringRef;
 
 @FFIGen
 @CXXHead("llvm/Support/CommandLine.h")
 @FFITypeAlias("llvm::cl::OptionCategory")
-public interface OptionCategory extends CXXPointer {
+public interface OptionCategory extends CXXPointer, LLVMPointer {
     @FFIFactory
     interface Factory {
         OptionCategory create(@CXXValue StringRef name, @CXXValue StringRef description);

@@ -18,8 +18,6 @@ package com.alibaba.fastffi.clang;
 import com.alibaba.fastffi.CXXEnum;
 import com.alibaba.fastffi.CXXEnumMap;
 import com.alibaba.fastffi.CXXHead;
-import com.alibaba.fastffi.CXXValue;
-import com.alibaba.fastffi.FFIExpr;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIGetter;
 import com.alibaba.fastffi.FFILibrary;

@@ -21,12 +21,12 @@ import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
-import com.alibaba.fastffi.llvm.SmallVectorImpl;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 
 @FFIGen
 @CXXHead("clang/Sema/Sema.h")
 @FFITypeAlias("clang::Sema")
-public interface Sema extends CXXPointer {
+public interface Sema extends CXXPointer, LLVMPointer {
     @CXXValue QualType SubstAutoType(@CXXValue QualType TypeWithAuto, @CXXValue QualType Replacement);
     @CXXValue QualType ReplaceAutoType(@CXXValue QualType TypeWithAuto, @CXXValue QualType Replacement);
 

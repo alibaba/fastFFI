@@ -23,12 +23,13 @@ import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 import com.alibaba.fastffi.llvm.StringRef;
 
 @FFIGen
 @CXXHead("clang/Frontend/ASTUnit.h")
 @FFITypeAlias("clang::ASTUnit")
-public interface ASTUnit extends CXXPointer {
+public interface ASTUnit extends CXXPointer, LLVMPointer {
 
     @FFIGen
     @CXXHead(system = "vector")

@@ -22,11 +22,12 @@ import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 
 @FFIGen
 @FFITypeAlias("clang::HeaderSearch")
 @CXXHead("clang/Lex/HeaderSearch.h")
-public interface HeaderSearch extends FFIPointer {
+public interface HeaderSearch extends LLVMPointer {
     @FFIGen
     @FFITypeAlias("clang::HeaderSearch::search_dir_iterator")
     @CXXHead("clang/Lex/HeaderSearch.h")

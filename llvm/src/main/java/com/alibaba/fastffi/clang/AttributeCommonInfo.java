@@ -16,10 +16,9 @@
 package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
-import com.alibaba.fastffi.CXXPointer;
 import com.alibaba.fastffi.FFIGen;
-import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 
 /**
  * The AttributeCommonInfo inherits from FFIPointer, rather than
@@ -28,6 +27,5 @@ import com.alibaba.fastffi.FFITypeAlias;
 @FFIGen
 @FFITypeAlias("clang::AttributeCommonInfo")
 @CXXHead("clang/Basic/AttributeCommonInfo.h")
-public interface AttributeCommonInfo extends FFIPointer
-{
+public interface AttributeCommonInfo extends LLVMPointer {
 }

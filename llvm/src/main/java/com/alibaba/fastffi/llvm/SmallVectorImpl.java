@@ -16,12 +16,11 @@
 package com.alibaba.fastffi.llvm;
 
 import com.alibaba.fastffi.*;
-import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
 @CXXHead("llvm/ADT/SmallVector.h")
 @FFITypeAlias("llvm::SmallVectorImpl")
-public interface SmallVectorImpl<T> extends CXXPointer {
+public interface SmallVectorImpl<T> extends CXXPointer, LLVMPointer {
 
     long size();
     @CXXOperator("[]")

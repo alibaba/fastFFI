@@ -19,7 +19,6 @@ import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.llvm.CharPointer;
-import com.alibaba.fastffi.llvm.CharPointer_cxx_0x2e9356;
 
 @FFIGen
 @FFITypeAlias("clang::Attr")

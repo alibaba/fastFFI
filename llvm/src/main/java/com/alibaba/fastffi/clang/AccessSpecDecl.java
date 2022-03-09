@@ -18,9 +18,6 @@ package com.alibaba.fastffi.clang;
 import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
-import com.alibaba.fastffi.llvm.GlobalAlias;
-import com.alibaba.fastffi.llvm.Value;
-import com.alibaba.fastffi.llvm.ValueCasting;
 
 @FFIGen
 @FFITypeAlias("clang::AccessSpecDecl")

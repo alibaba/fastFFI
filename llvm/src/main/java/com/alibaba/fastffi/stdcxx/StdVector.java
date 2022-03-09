@@ -24,6 +24,7 @@ import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 
 @FFIGen
 @CXXHead(system = {"vector", "string", "memory", "cstdint"})
@@ -32,7 +33,7 @@ import com.alibaba.fastffi.FFITypeAlias;
 @CXXTemplate(cxx="std::string", java="StdString")
 @CXXTemplate(cxx="int64_t", java="Long")
 //@CXXTemplate(cxx="std::unique_ptr<clang::ASTUnit>", java="UniquePtr<com.alibaba.fastffi.clang.ASTUnit>")
-public interface StdVector<E> extends CXXPointer {
+public interface StdVector<E> extends CXXPointer, LLVMPointer {
 
     @FFIFactory
     interface Factory<E> {

@@ -18,14 +18,14 @@ package com.alibaba.fastffi.clang;
 import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
-import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 import com.alibaba.fastffi.llvm.StringRef;
 
 @FFIGen
 @CXXHead("clang/Basic/SourceManager.h")
 @FFITypeAlias("clang::SourceManager")
-public interface SourceManager extends FFIPointer {
+public interface SourceManager extends LLVMPointer {
     boolean isInMainFile(@CXXValue SourceLocation sourceLocation);
     @CXXValue StringRef getFilename(@CXXValue SourceLocation location);
     @CXXValue SourceLocation getSpellingLoc(@CXXValue SourceLocation locationd);

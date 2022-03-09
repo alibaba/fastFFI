@@ -21,12 +21,12 @@ import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 import com.alibaba.fastffi.llvm.StringOStream;
 
 @FFIGen
 @FFITypeAlias("clang::TypeConstraint")
 @CXXHead({"clang/AST/ASTConcept.h", "clang/AST/PrettyPrinter.h"})
-public interface TypeConstraint extends CXXPointer
-{
+public interface TypeConstraint extends CXXPointer, LLVMPointer {
     void print(@CXXReference StringOStream OS, @CXXValue PrintingPolicy Policy);
 }

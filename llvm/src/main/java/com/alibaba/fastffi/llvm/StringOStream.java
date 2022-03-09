@@ -27,8 +27,7 @@ import com.alibaba.fastffi.stdcxx.StdString;
 @FFIGen
 @CXXHead(system = "llvm/Support/raw_ostream.h")
 @FFITypeAlias("llvm::raw_string_ostream")
-public interface StringOStream extends CXXPointer
-{
+public interface StringOStream extends CXXPointer, LLVMPointer {
 
     static StringOStream create(@CXXReference StdString OS) {
         return factory.create(OS);

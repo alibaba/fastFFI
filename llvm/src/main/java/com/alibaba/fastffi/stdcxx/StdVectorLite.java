@@ -34,7 +34,7 @@ import java.util.Iterator;
 @FFITypeAlias("std::vector")
 @CXXTemplate(cxx="std::string", java="StdString")
 @CXXTemplate(cxx="std::unique_ptr<clang::ASTUnit>", java="UniquePtr<com.alibaba.fastffi.clang.ASTUnit>")
-public interface StdVectorLite<E> extends CXXPointer, Iterable<E> {
+public interface StdVectorLite<E> extends CXXPointer, LLVMPointer, Iterable<E> {
 
     default Iterator<E> iterator() {
         return new Iterator<E>() {

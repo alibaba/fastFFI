@@ -20,7 +20,6 @@ import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.llvm.LLVMPointer;
-import com.alibaba.fastffi.llvm.StringRef;
 import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen

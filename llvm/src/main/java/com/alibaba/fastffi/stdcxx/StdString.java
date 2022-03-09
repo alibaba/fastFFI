@@ -30,7 +30,7 @@ import com.alibaba.fastffi.llvm.LLVMPointer;
 @FFIGen
 @CXXHead(system = "string")
 @FFITypeAlias("std::string")
-public interface StdString extends LLVMPointer, CXXPointer, FFIStringReceiver, FFIStringProvider {
+public interface StdString extends CXXPointer, LLVMPointer, FFIStringReceiver, FFIStringProvider {
 
     static StdString create() {
         return factory.create();

@@ -19,14 +19,14 @@ import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
-import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
 @CXXHead("clang/Basic/SourceLocation.h")
 @FFITypeAlias("clang::SourceLocation")
-public interface SourceLocation extends FFIPointer {
+public interface SourceLocation extends LLVMPointer {
     boolean isFileID();
     boolean isMacroID();
     boolean isValid();

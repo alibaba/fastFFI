@@ -28,8 +28,7 @@ import com.alibaba.fastffi.FFITypeRefiner;
 @FFITypeAlias("clang::TypeDependenceScope::TypeDependence")
 @FFITypeRefiner("TypeDependence.get")
 @CXXHead("clang/AST/DependenceFlags.h")
-public enum TypeDependence
-        implements CXXEnum {
+public enum TypeDependence implements CXXEnum {
     UnexpandedPack(Library.INSTANCE.UnexpandedPack()),
     Instantiation(Library.INSTANCE.Instantiation()),
     Dependent(Library.INSTANCE.Dependent()),

@@ -16,13 +16,11 @@
 package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
-import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIGetter;
 import com.alibaba.fastffi.FFISetter;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.llvm.LLVMPointer;
-import com.alibaba.fastffi.llvm.StringRef;
 
 @FFIGen
 @CXXHead("clang/AST/PrettyPrinter.h")

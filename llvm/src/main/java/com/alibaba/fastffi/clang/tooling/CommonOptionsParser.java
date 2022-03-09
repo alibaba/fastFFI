@@ -21,9 +21,8 @@ import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.FFIExpr;
 import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
-import com.alibaba.fastffi.FFILibrary;
 import com.alibaba.fastffi.FFITypeAlias;
-import com.alibaba.fastffi.FFITypeFactory;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 import com.alibaba.fastffi.llvm.cl.OptionCategory;
 import com.alibaba.fastffi.stdcxx.StdString;
 import com.alibaba.fastffi.stdcxx.StdVector;
@@ -32,7 +31,7 @@ import com.alibaba.fastffi.stdcxx.StdVector;
 @CXXHead("clang/Tooling/CommonOptionsParser.h")
 @CXXHead("clang/Tooling/Tooling.h")
 @FFITypeAlias("clang::tooling::CommonOptionsParser")
-public interface CommonOptionsParser extends CXXPointer {
+public interface CommonOptionsParser extends CXXPointer, LLVMPointer {
     @FFIFactory
     interface Factory {
         CommonOptionsParser create(int argc, @FFITypeAlias("const char**") long argv,

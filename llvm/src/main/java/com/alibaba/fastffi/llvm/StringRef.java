@@ -28,7 +28,7 @@ import com.alibaba.fastffi.stdcxx.StdString;
 @FFIGen
 @CXXHead("llvm/ADT/StringRef.h")
 @FFITypeAlias("llvm::StringRef")
-public interface StringRef extends CXXPointer, FFIStringProvider {
+public interface StringRef extends CXXPointer, LLVMPointer, FFIStringProvider {
 
     @FFIFactory
     interface Factory {

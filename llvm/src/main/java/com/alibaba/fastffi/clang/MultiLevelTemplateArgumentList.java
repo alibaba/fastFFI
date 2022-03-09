@@ -23,12 +23,12 @@ import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 
 @FFIGen
 @CXXHead("clang/Sema/Template.h")
 @FFITypeAlias("clang::MultiLevelTemplateArgumentList")
-public interface MultiLevelTemplateArgumentList
-        extends CXXPointer {
+public interface MultiLevelTemplateArgumentList extends CXXPointer, LLVMPointer {
 
     Factory FACTORY = FFITypeFactory.getFactory(MultiLevelTemplateArgumentList.class);
 

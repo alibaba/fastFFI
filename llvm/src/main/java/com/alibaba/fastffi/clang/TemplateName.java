@@ -22,15 +22,15 @@ import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIGetter;
 import com.alibaba.fastffi.FFILibrary;
-import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
 import com.alibaba.fastffi.FFITypeRefiner;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 
 @FFIGen
 @FFITypeAlias("clang::TemplateName")
 @CXXHead("clang/AST/TemplateName.h")
-public interface TemplateName extends FFIPointer {
+public interface TemplateName extends LLVMPointer {
     @CXXValue TemplateName getUnderlying();
 
     TemplateDecl getAsTemplateDecl();

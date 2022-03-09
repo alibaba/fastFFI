@@ -19,9 +19,9 @@ import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
-import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeRefiner;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 import com.alibaba.fastffi.llvm.StringOStream;
 import com.alibaba.fastffi.stdcxx.StdString;
 
@@ -29,7 +29,7 @@ import com.alibaba.fastffi.stdcxx.StdString;
 @CXXHead({"clang/AST/Type.h", "clang/AST/Decl.h"})
 @FFITypeAlias("clang::Type")
 @FFITypeRefiner("com.alibaba.fastffi.clang.TypeRefiner.refine")
-public interface Type extends FFIPointer {
+public interface Type extends LLVMPointer {
     TypeClass getTypeClass();
 
     boolean isFromAST();
