@@ -22,6 +22,8 @@ import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeRefiner;
+import com.alibaba.fastffi.llvm.StringOStream;
+import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
 @CXXHead({"clang/AST/Type.h", "clang/AST/Decl.h"})
@@ -159,4 +161,13 @@ public interface Type extends FFIPointer {
     boolean canHaveNullability (boolean resultIfUnknown);
 
     @CXXValue QualType getCanonicalTypeInternal();
+
+    void dump(@CXXReference StringOStream Out, @CXXReference ASTContext Context);
+
+    default String dump(@CXXReference ASTContext Context) {
+        StdString out = StdString.create();
+        StringOStream os = StringOStream.create(out);
+        dump(os, Context);
+        return out.toJavaString();
+    }
 }

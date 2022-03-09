@@ -37,6 +37,7 @@ import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
 import com.alibaba.fastffi.FFITypeRefiner;
 import com.alibaba.fastffi.clang.ASTContext;
+import com.alibaba.fastffi.clang.ASTDumpOutputFormat;
 import com.alibaba.fastffi.clang.ASTUnit;
 import com.alibaba.fastffi.clang.BuiltinType;
 import com.alibaba.fastffi.clang.CXXConstructorDecl;
@@ -80,6 +81,7 @@ import com.alibaba.fastffi.clang.TagDecl;
 import com.alibaba.fastffi.clang.TemplateArgument;
 import com.alibaba.fastffi.clang.TemplateArgumentList;
 import com.alibaba.fastffi.clang.TemplateDecl;
+import com.alibaba.fastffi.clang.TemplateDeclInstantiator;
 import com.alibaba.fastffi.clang.TemplateName;
 import com.alibaba.fastffi.clang.TemplateParameterList;
 import com.alibaba.fastffi.clang.TemplateSpecializationType;
@@ -776,8 +778,8 @@ public class FFIBindingGenerator {
 
         QualType underlyingQualType = typedefNameDecl.getUnderlyingType();
         TypeSpec.Builder factoryClassBuilder = null;
-        List<TypeVariableName> typeVariableNameList = getJavaTypeVariablesInContext(typedefNameDecl.getDeclContext());
-        getJavaTypeVariablesOnDecl(typedefNameDecl, typeVariableNameList);
+        List<TypeVariableName> typeVariableNames = getJavaTypeVariablesInContext(typedefNameDecl.getDeclContext());
+        getJavaTypeVariablesOnDecl(typedefNameDecl, typeVariableNames);
 
         try {
             // If the underlying type is not supported, we just skip generating the `get()` method.
@@ -822,8 +824,8 @@ public class FFIBindingGenerator {
             // part 2: generate creating from alias pointers
             if (!(underlyingFFIType.isPointer() || underlyingFFIType.isReference())) {
                 TypeName returnType = aliasJavaName;
-                if (!typeVariableNameList.isEmpty()) {
-                    returnType = ParameterizedTypeName.get(aliasJavaName, typeVariableNameList.toArray(new TypeName[0]));
+                if (!typeVariableNames.isEmpty()) {
+                    returnType = ParameterizedTypeName.get(aliasJavaName, typeVariableNames.toArray(new TypeName[0]));
                 }
                 if (underlyingFFIType.isPrimitive()) {
                     // generate a factory interface
@@ -841,6 +843,23 @@ public class FFIBindingGenerator {
                     // TODO: generate a cast method from alias type, for verbosity and convenience
                 }
             }
+
+            // part 3: instantiate the template typedef.
+            {
+                Type underlyingType = underlyingQualType.getTypePtr();
+                CXXRecordDecl cxxRecordDecl = underlyingType.getAsCXXRecordDecl();
+                if (cxxRecordDecl != null && cxxRecordDecl.isCompleteDefinition()) {
+                    // build ctors
+                    generateCtorMethods(cxxRecordDecl, typeGen, typeVariableNames);
+                    // build fields
+                    generateFields(cxxRecordDecl, typeGen);
+                    // build methods
+                    List<CXXMethodDecl> staticMethods = new ArrayList<>();
+                    generateMethods(cxxRecordDecl, typeGen, staticMethods);
+                    // build static methods
+                    generateStaticMethods(cxxRecordDecl, typeGen, staticMethods, typeVariableNames);
+                }
+            }
         } catch (UnsupportedASTException e) {
             // no `get()` is ok for interfaces
         }
@@ -849,7 +868,7 @@ public class FFIBindingGenerator {
         typeGen.builder.addSuperinterface(CXXPointer.class);
 
         // add type variables
-        for (TypeVariableName tv: typeVariableNameList) {
+        for (TypeVariableName tv: typeVariableNames) {
             typeGen.builder.addTypeVariable(tv);
             if (factoryClassBuilder != null) {
                 factoryClassBuilder.addTypeVariable(tv);
@@ -1769,6 +1788,10 @@ public class FFIBindingGenerator {
                 .addMember("value", "$S", cxxName).build();
     }
 
+    TypeName typeToTypeName(QualType type) {
+        return typeToTypeName(type.getTypePtr());
+    }
+
     TypeName typeToTypeName(Type type) {
         TypeClass typeClass = type.getTypeClass();
         switch (typeClass) {
@@ -1880,7 +1903,7 @@ public class FFIBindingGenerator {
     }
 
     private TypeName getJavaTypeForSubstTemplateTypeParmType(SubstTemplateTypeParmType type) {
-        throw unsupportedAST("Unsupported subst template type param type: " + type);
+        return typeToTypeName(type.getReplacementType());
     }
 
     private TypeName getJavaTypeForInjectedClassNameType(InjectedClassNameType type) {
@@ -2501,6 +2524,9 @@ public class FFIBindingGenerator {
     }
 
     private void generateFields(RecordDecl recordDecl, TypeSpec.Builder classBuilder) {
+        if (!recordDecl.isCompleteDefinition()) {
+            return;
+        }
         RecordDecl.field_iterator begin = recordDecl.field_begin();
         RecordDecl.field_iterator end = recordDecl.field_end();
         for (; begin.notEquals(end); begin.next()) {
@@ -2558,7 +2584,7 @@ public class FFIBindingGenerator {
 
     private void generateCtorMethods(CXXRecordDecl cxxRecordDecl, TypeGen typeGen, List<TypeVariableName> typeVariableNames) {
         TypeSpec.Builder factoryClassBuilder = null;
-        if (cxxRecordDecl.isAbstract()) {
+        if (!cxxRecordDecl.isCompleteDefinition() || cxxRecordDecl.isAbstract()) {
             return;
         }
         // build constructors
@@ -2606,6 +2632,9 @@ public class FFIBindingGenerator {
     }
 
     private void generateMethods(CXXRecordDecl cxxRecordDecl, TypeGen typeGen, List<CXXMethodDecl> staticMethods) {
+        if (!cxxRecordDecl.isCompleteDefinition()) {
+            return;
+        }
         // build methods
         CXXRecordDecl.method_iterator begin = cxxRecordDecl.method_begin();
         CXXRecordDecl.method_iterator end = cxxRecordDecl.method_end();
@@ -2678,48 +2707,51 @@ public class FFIBindingGenerator {
     }
 
     private void generateStaticMethods(CXXRecordDecl cxxRecordDecl, TypeGen typeGen, List<CXXMethodDecl> staticMethods, List<TypeVariableName> typeVariableNames) {
-        {
-            // static methods in template classes are not supported, see GH-24, add a logger
-            if (!staticMethods.isEmpty() && !typeVariableNames.isEmpty()) {
-                Logger.warn("TODO: static methods inside template clasess are not supported: %s", typeGen.className);
-            }
-            if (!staticMethods.isEmpty() && typeVariableNames.isEmpty()) {
-                String cxxName = getCXXName(cxxRecordDecl);
-                TypeSpec.Builder libraryBuilder = typeGen.getLibraryBuilder(cxxName);
-                Set<String> libraryMethods = new HashSet<>();
-                for (CXXMethodDecl methodDecl : staticMethods) {
-                    String methodName = methodDecl.getNameAsString().toJavaString();
-                    try {
-                        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder(methodName);
-                        methodBuilder.addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
-                        buildReturnAndParamTypes(methodBuilder, methodDecl);
-                        {
-                            FFIType ffiType = typeToFFIType(methodDecl.getReturnType());
-                            if (ffiType.isTemplateVariableDependent()) {
-                                throw unsupportedAST("TODO: static methods with type variables are not supported.");
-                            }
+        if (!cxxRecordDecl.isCompleteDefinition()) {
+            return;
+        }
+        if (staticMethods.isEmpty()) {
+            return;
+        }
+        // static methods in template classes are not supported, see GH-24, add a logger
+        if (!!typeVariableNames.isEmpty()) {
+            Logger.warn("TODO: static methods inside template clasess are not supported: %s", typeGen.className);
+            return;
+        }
+        String cxxName = getCXXName(cxxRecordDecl);
+        TypeSpec.Builder libraryBuilder = typeGen.getLibraryBuilder(cxxName);
+        Set<String> libraryMethods = new HashSet<>();
+        for (CXXMethodDecl methodDecl : staticMethods) {
+            String methodName = methodDecl.getNameAsString().toJavaString();
+            try {
+                MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder(methodName);
+                methodBuilder.addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT);
+                buildReturnAndParamTypes(methodBuilder, methodDecl);
+                {
+                    FFIType ffiType = typeToFFIType(methodDecl.getReturnType());
+                    if (ffiType.isTemplateVariableDependent()) {
+                        throw unsupportedAST("TODO: static methods with type variables are not supported.");
+                    }
 
-                            int numParams = methodDecl.getNumParams();
-                            for (int i = 0; i < numParams; i++) {
-                                ParmVarDecl parmVarDecl = methodDecl.getParamDecl(i);
-                                FFIType paramFFIType = typeToFFIType(parmVarDecl.getTypeSourceInfo().getType());
-                                if (paramFFIType.isTemplateVariableDependent()) {
-                                    throw unsupportedAST("TODO: static methods with type variables are not supported.");
-                                }
-                            }
+                    int numParams = methodDecl.getNumParams();
+                    for (int i = 0; i < numParams; i++) {
+                        ParmVarDecl parmVarDecl = methodDecl.getParamDecl(i);
+                        FFIType paramFFIType = typeToFFIType(parmVarDecl.getTypeSourceInfo().getType());
+                        if (paramFFIType.isTemplateVariableDependent()) {
+                            throw unsupportedAST("TODO: static methods with type variables are not supported.");
                         }
-                        MethodSpec methodSpec = methodBuilder.build();
-                        if (!libraryMethods.add(methodSignature(methodSpec))) {
-                            continue;
-                        }
-                        if (exclude(typeGen.className.canonicalName(), methodName)) {
-                            continue;
-                        }
-                        libraryBuilder.addMethod(methodSpec);
-                    } catch (UnsupportedASTException e) {
-                        Logger.debug("Failed to generate static method %s::%s: %s", cxxName, methodName, e);
                     }
                 }
+                MethodSpec methodSpec = methodBuilder.build();
+                if (!libraryMethods.add(methodSignature(methodSpec))) {
+                    continue;
+                }
+                if (exclude(typeGen.className.canonicalName(), methodName)) {
+                    continue;
+                }
+                libraryBuilder.addMethod(methodSpec);
+            } catch (UnsupportedASTException e) {
+                Logger.debug("Failed to generate static method %s::%s: %s", cxxName, methodName, e);
             }
         }
     }

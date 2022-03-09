@@ -16,30 +16,17 @@
 package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.CXXPointer;
+import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.StringOStream;
 
 @FFIGen
-@FFITypeAlias("clang::TemplateTypeParmDecl")
-@CXXHead("clang/AST/DeclTemplate.h")
-public interface TemplateTypeParmDecl extends TypeDecl {
-    static TemplateTypeParmDecl dyn_cast(Decl decl) {
-        return DeclCasting.INSTANCE.dyn_cast(decl, (TemplateTypeParmDecl) null);
-    }
-
-    boolean wasDeclaredWithTypename();
-
-    boolean hasDefaultArgument();
-    @CXXValue QualType getDefaultArgument();
-
-    int getDepth();
-    int getIndex();
-    boolean isParameterPack();
-    boolean isPackExpansion();
-
-    boolean hasTypeConstraint();
-    TypeConstraint getTypeConstraint();
-
-    @CXXValue SourceRange getSourceRange();
+@FFITypeAlias("clang::TypeConstraint")
+@CXXHead({"clang/AST/ASTConcept.h", "clang/AST/PrettyPrinter.h"})
+public interface TypeConstraint extends CXXPointer
+{
+    void print(@CXXReference StringOStream OS, @CXXValue PrintingPolicy Policy);
 }

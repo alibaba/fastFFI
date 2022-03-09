@@ -28,6 +28,8 @@ import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
 import com.alibaba.fastffi.FFITypeRefiner;
+import com.alibaba.fastffi.llvm.StringOStream;
+import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
 @FFITypeAlias("clang::Decl")
@@ -59,6 +61,19 @@ public interface Decl extends FFIPointer {
 
     boolean hasAttrs();
     @CXXReference AttrVec getAttrs();
+
+    void dump(@CXXReference StringOStream Out, boolean Deserialize, ASTDumpOutputFormat OutputFormat);
+
+    default String dump(ASTDumpOutputFormat OutputFormat) {
+        StdString out = StdString.create();
+        StringOStream os = StringOStream.create(out);
+        dump(os, true, OutputFormat);
+        return out.toJavaString();
+    }
+
+    default String dump() {
+        return dump(ASTDumpOutputFormat.Default);
+    }
 
     @FFITypeAlias("clang::Decl::Kind")
     @FFITypeRefiner("com.alibaba.fastffi.clang.Decl.Kind.get")
