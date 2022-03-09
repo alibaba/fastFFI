@@ -13,35 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.fastffi.llvm;
+package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
-import com.alibaba.fastffi.CXXPointer;
 import com.alibaba.fastffi.CXXReference;
-import com.alibaba.fastffi.FFIFactory;
+import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
-import com.alibaba.fastffi.FFITypeFactory;
-import com.alibaba.fastffi.stdcxx.StdString;
+import com.alibaba.fastffi.llvm.LLVMPointer;
 
 @FFIGen
-@CXXHead("llvm/Support/raw_ostream.h")
-@FFITypeAlias("llvm::raw_string_ostream")
-public interface StringOStream extends CXXPointer, LLVMPointer {
-
-    static StringOStream create(@CXXReference StdString OS) {
-        return factory.create(OS);
-    }
-
-    @CXXReference StdString str();
-    void flush();
-    long GetBufferSize();
-    void enable_colors(boolean enable);
-
-    Factory factory = FFITypeFactory.getFactory(StringOStream.class);
-
-    @FFIFactory
-    interface Factory {
-        StringOStream create(@CXXReference StdString OS);
-    }
+@CXXHead("clang/AST/TemplateBase.h")
+@FFITypeAlias("clang::TemplateArgumentLoc")
+public interface TemplateArgumentLoc extends LLVMPointer {
+    @CXXValue SourceLocation getLocation();
+    @CXXValue SourceRange getSourceRange();
+    @CXXReference TemplateArgument getArgument();
+    TypeSourceInfo getTypeSourceInfo();
+    @CXXValue SourceLocation getTemplateNameLoc();
+    @CXXValue SourceLocation getTemplateEllipsisLoc();
 }

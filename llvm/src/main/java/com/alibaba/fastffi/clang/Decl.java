@@ -48,6 +48,11 @@ public interface Decl extends LLVMPointer {
     Decl getNextDeclInContext();
     DeclContext getDeclContext();
 
+    TranslationUnitDecl getTranslationUnitDecl();
+
+    boolean isInStdNamespace();
+    boolean isInAnonymousNamespace();
+
     boolean isImplicit();
 
     @FFIExpr("!{0}->isImplicit() && {0}->getASTContext().getSourceManager().isInMainFile({0}->getLocation())")

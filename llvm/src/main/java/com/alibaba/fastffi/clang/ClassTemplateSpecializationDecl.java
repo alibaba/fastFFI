@@ -17,6 +17,7 @@ package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.CXXReference;
+import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
 
@@ -28,11 +29,17 @@ public interface ClassTemplateSpecializationDecl extends CXXRecordDecl {
         return DeclCasting.INSTANCE.dyn_cast(decl, (ClassTemplateSpecializationDecl) null);
     }
 
+    ClassTemplateSpecializationDecl getMostRecentDecl();
     ClassTemplateDecl getSpecializedTemplate();
     @CXXReference TemplateArgumentList getTemplateArgs();
+    @CXXReference TemplateArgumentList getTemplateInstantiationArgs();
 
     TemplateSpecializationKind getSpecializationKind();
+    void setSpecializationKind(@CXXValue TemplateSpecializationKind TSK);
     boolean isExplicitSpecialization();
     boolean isClassScopeExplicitSpecialization();
     boolean isExplicitInstantiationOrSpecialization();
+
+    @CXXValue SourceRange getPointOfInstantiation();
+    @CXXValue SourceRange getSourceRange();
 }

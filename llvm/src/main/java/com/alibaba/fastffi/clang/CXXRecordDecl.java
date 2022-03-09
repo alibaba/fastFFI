@@ -125,7 +125,10 @@ public interface CXXRecordDecl extends RecordDecl {
 
     CXXDestructorDecl getDestructor();
 
+    boolean hasDefinition();
+    boolean isDynamicClass();
     CXXRecordDecl getDefinition();
     CXXRecordDecl getCanonicalDecl();
+
     ClassTemplateDecl getDescribedClassTemplate();
 }

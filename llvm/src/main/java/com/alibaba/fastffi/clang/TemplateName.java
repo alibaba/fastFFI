@@ -18,7 +18,9 @@ package com.alibaba.fastffi.clang;
 import com.alibaba.fastffi.CXXEnum;
 import com.alibaba.fastffi.CXXEnumMap;
 import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.CXXValue;
+import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIGetter;
 import com.alibaba.fastffi.FFILibrary;
@@ -26,16 +28,44 @@ import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
 import com.alibaba.fastffi.FFITypeRefiner;
 import com.alibaba.fastffi.llvm.LLVMPointer;
+import com.alibaba.fastffi.llvm.StringOStream;
+import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
 @FFITypeAlias("clang::TemplateName")
-@CXXHead("clang/AST/TemplateName.h")
+@CXXHead({"clang/AST/TemplateName.h", "llvm/Support/raw_ostream.h"})
 public interface TemplateName extends LLVMPointer {
-    @CXXValue TemplateName getUnderlying();
+    TemplateName.Factory FACTORY = FFITypeFactory.getFactory(TemplateName.class);
+
+    static TemplateName create(TemplateDecl Template) {
+        return FACTORY.create(Template);
+    }
 
     TemplateDecl getAsTemplateDecl();
+    @CXXValue TemplateName getUnderlying();
 
+    boolean isNull();
     NameKind getKind();
+
+    @CXXValue TemplateName getNameToSubstitute();
+    boolean isDependent();
+    boolean isInstantiationDependent();
+    boolean containsUnexpandedParameterPack();
+
+    void dump(@CXXReference StringOStream Out);
+
+    default String dump() {
+        StdString out = StdString.create();
+        StringOStream os = StringOStream.create(out);
+        dump(os);
+        return out.toJavaString();
+    }
+
+    @FFIFactory
+    @CXXHead("clang/Sema/Template.h")
+    interface Factory {
+        TemplateName create(TemplateDecl Template);
+    }
 
     @FFITypeAlias("clang::TemplateName::NameKind")
     @FFITypeRefiner("com.alibaba.fastffi.clang.TemplateName.NameKind.get")

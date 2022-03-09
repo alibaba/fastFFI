@@ -60,4 +60,20 @@ public interface DeclContext extends LLVMPointer {
     DeclContext getRedeclContext();
 
     @CXXReference ASTContext getParentASTContext();
+
+    boolean isClosure();
+    boolean isObjCContainer();
+    boolean isFunctionOrMethod();
+    boolean isLookupContext();
+    boolean isFileContext();
+    boolean isTranslationUnit();
+    boolean isRecord();
+    boolean isNamespace();
+    boolean isStdNamespace();
+    boolean isInlineNamespace();
+    boolean isDependentContext();
+    boolean isTransparentContext();
+    boolean isExternCContext();
+    LinkageSpecDecl getExternCContext();
+    boolean isExternCXXContext();
 }

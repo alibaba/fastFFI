@@ -37,7 +37,6 @@ import com.alibaba.fastffi.FFITypeAlias;
 import com.alibaba.fastffi.FFITypeFactory;
 import com.alibaba.fastffi.FFITypeRefiner;
 import com.alibaba.fastffi.clang.ASTContext;
-import com.alibaba.fastffi.clang.ASTDumpOutputFormat;
 import com.alibaba.fastffi.clang.ASTUnit;
 import com.alibaba.fastffi.clang.BuiltinType;
 import com.alibaba.fastffi.clang.CXXConstructorDecl;
@@ -74,6 +73,7 @@ import com.alibaba.fastffi.clang.RecordDecl;
 import com.alibaba.fastffi.clang.RecordType;
 import com.alibaba.fastffi.clang.RefQualifierKind;
 import com.alibaba.fastffi.clang.ReferenceType;
+import com.alibaba.fastffi.clang.Sema;
 import com.alibaba.fastffi.clang.SourceLocation;
 import com.alibaba.fastffi.clang.SourceManager;
 import com.alibaba.fastffi.clang.SubstTemplateTypeParmType;
@@ -81,9 +81,9 @@ import com.alibaba.fastffi.clang.TagDecl;
 import com.alibaba.fastffi.clang.TemplateArgument;
 import com.alibaba.fastffi.clang.TemplateArgumentList;
 import com.alibaba.fastffi.clang.TemplateDecl;
-import com.alibaba.fastffi.clang.TemplateDeclInstantiator;
 import com.alibaba.fastffi.clang.TemplateName;
 import com.alibaba.fastffi.clang.TemplateParameterList;
+import com.alibaba.fastffi.clang.TemplateSpecializationKind;
 import com.alibaba.fastffi.clang.TemplateSpecializationType;
 import com.alibaba.fastffi.clang.TemplateTemplateParmDecl;
 import com.alibaba.fastffi.clang.TemplateTypeParmDecl;
@@ -539,6 +539,7 @@ public class FFIBindingGenerator {
     }
 
     StdVectorLite<UniquePtr<ASTUnit>> astUnits;
+    Sema currentSema = null;
     Map<String, TypeGen> classBuilderMap;
 
     Map<FFIType, FFIType> ffiTypeDictionary = new HashMap<>();
@@ -848,7 +849,8 @@ public class FFIBindingGenerator {
             {
                 Type underlyingType = underlyingQualType.getTypePtr();
                 CXXRecordDecl cxxRecordDecl = underlyingType.getAsCXXRecordDecl();
-                if (cxxRecordDecl != null && cxxRecordDecl.isCompleteDefinition()) {
+                if (cxxRecordDecl != null && !cxxRecordDecl.isNull()) {
+                    tryInstantiateTemplateSpecialization(cxxRecordDecl);
                     // build ctors
                     generateCtorMethods(cxxRecordDecl, typeGen, typeVariableNames);
                     // build fields
@@ -1144,6 +1146,14 @@ public class FFIBindingGenerator {
         }
     }
 
+    private void withSema(Sema sema) {
+        this.currentSema = sema;
+    }
+
+    private Sema getCurrentSema() {
+        return this.currentSema;
+    }
+
     private List<AnnotationSpec> collectCXXHead(Type type) {
         Set<IncludeEntry> includeEntries = new HashSet<>();
         collectInclude(type, includeEntries);
@@ -1399,7 +1409,12 @@ public class FFIBindingGenerator {
 
         initHeaderManager(astUnit);
         ASTContext astContext = astUnit.getASTContext();
+
+        // try our best the leverage the correct `Sema` in when process declarations and types,
+        // as the `Sema` is associated with ASTUnit only.
+        this.withSema(astUnit.getSema());
         generate(astContext.getTranslationUnitDecl());
+        this.withSema(null);
     }
 
     void generate(TranslationUnitDecl translationUnitDecl) {
@@ -1447,6 +1462,9 @@ public class FFIBindingGenerator {
                     break;
                 case ClassTemplate:
                     generateClassTemplate((ClassTemplateDecl) decl);
+                    break;
+                case ClassTemplateSpecialization:
+                    generateClassTemplateSpecialization((ClassTemplateSpecializationDecl) decl);
                     break;
                 case TypeAlias:
                     generateTypedef((TypeAliasDecl) decl);
@@ -1690,10 +1708,6 @@ public class FFIBindingGenerator {
                 parentTypeGen.addEnclosedTypeGen(typeGen);
             }
         }
-    }
-
-    void generateClassTemplate(ClassTemplateDecl classTemplateDecl) {
-        generate(classTemplateDecl.getTemplatedDecl());
     }
 
     UnsupportedASTException unsupportedAST(String message) {
@@ -2434,6 +2448,20 @@ public class FFIBindingGenerator {
         generateFFIPointer(cxxRecordDecl);
     }
 
+    void generateClassTemplate(ClassTemplateDecl classTemplateDecl) {
+        generate(classTemplateDecl.getTemplatedDecl());
+    }
+
+    void generateClassTemplateSpecialization(ClassTemplateSpecializationDecl specializationDecl) {
+        ClassTemplateDecl templateDecl = specializationDecl.getSpecializedTemplate();
+        generate(templateDecl);
+        TemplateName templateName = TemplateName.create(templateDecl);
+        QualType specializationType = specializationDecl.getASTContext()
+                .getCanonicalTemplateSpecializationType(
+                        templateName, specializationDecl.getTemplateArgs().asArray());
+        checkTemplateInstantiation(typeToFFIType(specializationType));
+    }
+
     private void generateFFIPointer(RecordDecl recordDecl) {
         TypeGen typeGen = getOrCreateTypeGen(recordDecl);
         TypeSpec.Builder classBuilder = typeGen.builder;
@@ -2853,6 +2881,26 @@ public class FFIBindingGenerator {
             }
         }
         return array;
+    }
+
+    private void tryInstantiateTemplateSpecialization(CXXRecordDecl cxxRecordDecl) {
+        if (!cxxRecordDecl.isCompleteDefinition() && cxxRecordDecl.getDeclKind() == Decl.Kind.ClassTemplateSpecialization) {
+            tryInstantiateTemplateSpecialization(ClassTemplateSpecializationDecl.dyn_cast(cxxRecordDecl));
+        }
+    }
+
+    private void tryInstantiateTemplateSpecialization(ClassTemplateSpecializationDecl templateSpecializationDecl) {
+        Sema sema = this.getCurrentSema();
+        if (sema != null && templateSpecializationDecl != null) {
+            TemplateSpecializationKind specializationKind = templateSpecializationDecl.getSpecializationKind();
+            if (specializationKind == TemplateSpecializationKind.TSK_ImplicitInstantiation ||
+                    specializationKind == TemplateSpecializationKind.TSK_Undeclared) {
+                sema.InstantiateClassTemplateSpecialization(
+                        templateSpecializationDecl.getLocation(),
+                        templateSpecializationDecl,
+                        TemplateSpecializationKind.TSK_ExplicitInstantiationDefinition, true);
+            }
+        }
     }
 
     private boolean hasDefaultArgument(NamedDecl param) {
