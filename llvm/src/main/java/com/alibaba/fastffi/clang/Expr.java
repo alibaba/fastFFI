@@ -21,15 +21,8 @@ import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
 
 @FFIGen
-@CXXHead("clang/AST/Type.h")
-@FFITypeAlias("clang::DecltypeType")
-public interface DecltypeType extends Type {
-    static DecltypeType dyn_cast(Type type) {
-        return TypeCasting.INSTANCE.dyn_cast(type, (DecltypeType) null);
-    }
-
-    Expr getUnderlyingExpr();
-    @CXXValue QualType getUnderlyingType();
-    @CXXValue QualType desugar();
-    boolean isSugared();
+@CXXHead({"clang/AST/Expr.h"})
+@FFITypeAlias("clang::Expr")
+public interface Expr extends Stmt {
+    @CXXValue QualType getType();
 }

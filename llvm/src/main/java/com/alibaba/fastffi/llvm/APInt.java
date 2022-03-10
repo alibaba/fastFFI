@@ -13,23 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.fastffi.clang;
+package com.alibaba.fastffi.llvm;
 
 import com.alibaba.fastffi.CXXHead;
-import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
+import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeAlias;
 
 @FFIGen
-@CXXHead("clang/AST/Type.h")
-@FFITypeAlias("clang::DecltypeType")
-public interface DecltypeType extends Type {
-    static DecltypeType dyn_cast(Type type) {
-        return TypeCasting.INSTANCE.dyn_cast(type, (DecltypeType) null);
-    }
-
-    Expr getUnderlyingExpr();
-    @CXXValue QualType getUnderlyingType();
-    @CXXValue QualType desugar();
-    boolean isSugared();
+@CXXHead("llvm/ADT/APInt.h")
+@FFITypeAlias("llvm::APInt")
+public interface APInt extends FFIPointer {
+    long getZExtValue();
+    long getSExtValue();
 }

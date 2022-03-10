@@ -81,7 +81,7 @@ public class FFIType {
     }
 
     public String toString() {
-        return String.format("<%s, %s%s>", cxxTypeString, javaAnnotation(), javaType);
+        return String.format("<(%s) %s, %s%s>", cxxType.getTypeClass(), cxxTypeString, javaAnnotation(), javaType);
     }
 
     public FFIType(QualType cxxType, TypeName javaType) {

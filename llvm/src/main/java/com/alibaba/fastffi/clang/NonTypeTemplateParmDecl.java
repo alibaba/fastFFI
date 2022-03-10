@@ -16,6 +16,8 @@
 package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
+import com.alibaba.fastffi.CXXReference;
+import com.alibaba.fastffi.CXXValue;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
 
@@ -27,5 +29,24 @@ public interface NonTypeTemplateParmDecl extends DeclaratorDecl {
         return DeclCasting.INSTANCE.dyn_cast(decl, (NonTypeTemplateParmDecl) null);
     }
 
+    @CXXValue SourceRange getSourceRange();
     boolean hasDefaultArgument();
+    Expr getDefaultArgument();
+    @CXXValue SourceLocation getDefaultArgumentLoc();
+    boolean defaultArgumentWasInherited();
+    void setDefaultArgument(Expr DefArg);
+    void setInheritedDefaultArgument(@CXXReference ASTContext C, NonTypeTemplateParmDecl Parm);
+    void removeDefaultArgument();
+    boolean isParameterPack();
+    boolean isPackExpansion();
+    boolean isExpandedParameterPack();
+    int getNumExpansionTypes();
+    @CXXValue QualType getExpansionType(int I);
+    TypeSourceInfo getExpansionTypeSourceInfo(int I);
+    Expr getPlaceholderTypeConstraint();
+    void setPlaceholderTypeConstraint(Expr E);
+    boolean hasPlaceholderTypeConstraint();
+    int getDepth();
+    int getPosition();
+    int getIndex();
 }

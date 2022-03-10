@@ -17,8 +17,10 @@ package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
 import com.alibaba.fastffi.CXXValue;
+import com.alibaba.fastffi.FFIFactory;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.FFITypeFactory;
 import com.alibaba.fastffi.llvm.LLVMPointer;
 import com.alibaba.fastffi.stdcxx.StdString;
 
@@ -28,6 +30,12 @@ import javax.annotation.Nonnull;
 @CXXHead("clang/AST/Type.h")
 @FFITypeAlias("clang::QualType")
 public interface QualType extends LLVMPointer {
+    Factory FACTORY = FFITypeFactory.getFactory(QualType.class);
+
+    static QualType create(Type Ptr, int Quals) {
+        return FACTORY.create(Ptr, Quals);
+    }
+
     @Nonnull Type getTypePtr();
     Type getTypePtrOrNull();
 
@@ -55,4 +63,10 @@ public interface QualType extends LLVMPointer {
 
     @CXXValue StdString getAsString();
     IdentifierInfo getBaseTypeIdentifier();
+
+    @FFIFactory
+    @CXXHead("clang/AST/Type.h")
+    interface Factory {
+        QualType create(Type Ptr, int Quals);
+    }
 }

@@ -16,20 +16,23 @@
 package com.alibaba.fastffi.clang;
 
 import com.alibaba.fastffi.CXXHead;
-import com.alibaba.fastffi.CXXValue;
+import com.alibaba.fastffi.CXXReference;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFITypeAlias;
+import com.alibaba.fastffi.llvm.LLVMPointer;
+import com.alibaba.fastffi.llvm.StringOStream;
+import com.alibaba.fastffi.stdcxx.StdString;
 
 @FFIGen
-@CXXHead("clang/AST/Type.h")
-@FFITypeAlias("clang::DecltypeType")
-public interface DecltypeType extends Type {
-    static DecltypeType dyn_cast(Type type) {
-        return TypeCasting.INSTANCE.dyn_cast(type, (DecltypeType) null);
-    }
+@CXXHead({"clang/AST/Stmt.h", "llvm/Support/raw_ostream.h"})
+@FFITypeAlias("clang::Stmt")
+public interface Stmt extends LLVMPointer {
+    void dump(@CXXReference StringOStream Out, @CXXReference ASTContext Context);
 
-    Expr getUnderlyingExpr();
-    @CXXValue QualType getUnderlyingType();
-    @CXXValue QualType desugar();
-    boolean isSugared();
+    default String dump(@CXXReference ASTContext Context) {
+        StdString out = StdString.create();
+        StringOStream os = StringOStream.create(out);
+        dump(os, Context);
+        return out.toJavaString();
+    }
 }

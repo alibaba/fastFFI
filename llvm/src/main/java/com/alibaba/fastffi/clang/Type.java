@@ -170,4 +170,8 @@ public interface Type extends LLVMPointer {
         dump(os, Context);
         return out.toJavaString();
     }
+
+    default StdString getAsString() {
+        return QualType.create(this, 0).getAsString();
+    }
 }

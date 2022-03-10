@@ -30,6 +30,7 @@ public interface ElaboratedType extends TypeWithKeyword {
 
     NestedNameSpecifier getQualifier();
     @CXXValue QualType getNamedType();
+    boolean isSugared();
     @CXXValue QualType desugar();
     TagDecl getOwnedTagDecl();
 }

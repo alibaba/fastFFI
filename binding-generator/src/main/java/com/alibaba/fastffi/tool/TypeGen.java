@@ -63,6 +63,11 @@ public class TypeGen {
         this.debug = debug;
     }
 
+    @Override
+    public String toString() {
+        return "TypeGen <" + className + ">";
+    }
+
     List<TypeGen> getEnclosedTypeGenList() {
         if (enclosedTypeGenList == null) {
             return Collections.emptyList();
@@ -75,10 +80,14 @@ public class TypeGen {
             enclosedTypeGenList = new ArrayList<>(3);
         }
         if (enclosedTypeGenList.contains(typeGen)) {
-            throw new IllegalStateException("Oops");
+            throw new IllegalStateException(
+                    String.format("Oops: already exists: %s, enclosed: %s",
+                            typeGen.className, enclosedTypeGenList));
         }
-        if (typeGen.enclosedTypeGenList != null) {
-            throw new IllegalStateException("Oops");
+        if (typeGen.enclosingTypeGen != null) {
+            throw new IllegalStateException(
+                    String.format("Oops: enclosing not null: %s, %s, enclosing: %s",
+                            className, typeGen.className, typeGen.enclosingTypeGen));
         }
         typeGen.enclosingTypeGen = this;
         enclosedTypeGenList.add(typeGen);
