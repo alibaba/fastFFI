@@ -7,6 +7,7 @@ import com.alibaba.fastffi.FFIPointer;
 import com.alibaba.fastffi.FFITypeFactory;
 import com.alibaba.fastffi.clang.Decl;
 import com.squareup.javapoet.AnnotationSpec;
+import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
@@ -16,15 +17,22 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
+import com.squareup.javapoet.WildcardTypeName;
 
 import javax.lang.model.element.Modifier;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.WildcardType;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 public class TypeGen {
@@ -41,7 +49,6 @@ public class TypeGen {
     Status status;
 
     private final String fileComment;
-    private final boolean debug;
 
     TypeGen enclosingTypeGen;
     List<TypeGen> enclosedTypeGenList;
@@ -49,23 +56,69 @@ public class TypeGen {
     private TypeSpec.Builder factoryBuilder;
     private TypeSpec.Builder libraryBuilder;
 
-    TypeGen(ClassName className, TypeSpec.Builder builder, Decl decl, String fileComment) {
-        this(className, builder, decl, fileComment, false);
-    }
+    private Set<String> methods;
 
-    TypeGen(ClassName className, TypeSpec.Builder builder, Decl decl, String fileComment, boolean debug) {
+    TypeGen(ClassName className, TypeSpec.Builder builder, Decl decl, String fileComment) {
         this.className = className;
         this.builder = builder;
         this.decl = decl;
         this.status = Status.None;
 
         this.fileComment = fileComment;
-        this.debug = debug;
+
+        this.methods = new TreeSet<>();
     }
 
     @Override
     public String toString() {
         return "TypeGen <" + className + ">";
+    }
+
+    public Set<String> getMethods() {
+        return methods;
+    }
+
+    public boolean hasMethod(final String name, final String tag) {
+        return methods.contains(name + tag);
+    }
+
+    public boolean addMethod(final String name, final String tag) {
+        return methods.add(name + tag);
+    }
+
+    public boolean addMethod(final String method) {
+        return methods.add(method);
+    }
+
+    public void addMethods(Collection<String> methods) {
+        this.methods.addAll(methods);
+    }
+
+    public String generateMethodTag(List<ParameterSpec> parameters) {
+        StringBuilder builder = new StringBuilder();
+        for (ParameterSpec parameter: parameters) {
+            builder.append("|");
+            generateTypeTag(builder, parameter.type);
+        }
+        return builder.toString();
+    }
+
+    private void generateTypeTag(final StringBuilder builder, TypeName type) {
+        if (type.isPrimitive()) {
+            builder.append(type);
+        } if (type instanceof ArrayTypeName) {
+            builder.append("[");
+            generateTypeTag(builder, ((ArrayTypeName) type).componentType);
+            builder.append("]");
+        } else if (type instanceof ClassName) {
+            builder.append(((ClassName) type));
+        } else if (type instanceof ParameterizedTypeName) {
+            builder.append(((ParameterizedTypeName) type).rawType);
+        } else if (type instanceof TypeVariableName) {
+            builder.append("?O");
+        } else if (type instanceof WildcardTypeName) {
+            builder.append("?");
+        }
     }
 
     List<TypeGen> getEnclosedTypeGenList() {
@@ -156,7 +209,7 @@ public class TypeGen {
                     .addFileComment(fileComment)
                     .indent("    ")
                     .build();
-            if (debug) {
+            if (Logger.verbose()) {
                 System.out.println(javaFile);
             }
             javaFile.writeTo(output);
