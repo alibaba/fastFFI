@@ -155,7 +155,7 @@ public class AnnotationProcessorUtils {
     public static TypeElement getTypeElement(ProcessingEnvironment processingEnv, String name) {
         TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(name);
         if (typeElement == null) {
-            throw new IllegalStateException("Cannot find type element via '" + name + "'");
+            throw new FFIIllegalStateException("Cannot find type element via '" + name + "'", typeElement);
         }
         return typeElement;
     }

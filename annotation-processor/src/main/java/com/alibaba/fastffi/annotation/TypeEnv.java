@@ -264,7 +264,8 @@ public class TypeEnv {
         String typeName = ownerElement.getQualifiedName().toString();
         TypeDef typeDef = registry.getFFITemplateTypeDef(typeName);
         if (typeDef == null) {
-            throw new IllegalStateException("" + AnnotationProcessorUtils.format(executableElement) + " must have a FFITemplate");
+            throw new FFIIllegalStateException(
+                    "" + AnnotationProcessorUtils.format(executableElement) + " must have a FFITemplate", ownerElement);
         }
         return typeDef;
     }
@@ -397,7 +398,7 @@ public class TypeEnv {
             }
         }
         if (hasCXXRef && hasCXXValue) {
-            throw new IllegalStateException("Cannot be both CXXValue and CXXReference: " + element);
+            throw new FFIIllegalStateException("Cannot be both CXXValue and CXXReference: " + element, element);
         }
         if (hasCXXValue) {
             return VRP.Value;
@@ -599,7 +600,7 @@ public class TypeEnv {
                 String typeName = typeElement.getQualifiedName().toString();
                 if (typeName.equals("java.lang.String")) {
                     //return "jstring";
-                    throw new IllegalStateException("TODO: Not supported now");
+                    throw new FFIIllegalStateException("TODO: Not supported now", typeElement);
                 } else if (typeName.equals("java.lang.Class")) {
                     return "jclass";
                 }
@@ -1016,7 +1017,7 @@ public class TypeEnv {
             FFITypeAlias typeAlias = typeElement.getAnnotation(FFITypeAlias.class);
             if (typeAlias == null) {
                 if (!isBuiltinType) {
-                    throw new IllegalStateException("A foreign type " + typeElement + " must have a FFITypeAlias");
+                    throw new FFIIllegalStateException("A foreign type " + typeElement + " must have a FFITypeAlias", typeElement);
                 } else {
                     if (theType.getTypeArguments().isEmpty()) {
                         // no type variable is allowed in builtin type use.
@@ -1037,13 +1038,13 @@ public class TypeEnv {
 
             if (internalType != null) {
                 if (!typeUtils().isAssignable(internalType.getDeclaredTypeMirror(processingEnv), theType)) {
-                    throw new IllegalStateException("Mismatching internal type for " + ffiRawType
-                            + " find " + internalType.getDeclaredTypeMirror(processingEnv) + ", expected " + theType);
+                    throw new FFIIllegalStateException("Mismatching internal type for " + ffiRawType
+                            + " find " + internalType.getDeclaredTypeMirror(processingEnv) + ", expected " + theType, typeElement);
                 }
                 return new TypeMapping(ffiRawType, internalType.getDeclaredTypeMirror(processingEnv));
             } else /* if (internalType == null) */ {
                 if (typeElement.getAnnotation(FFIGen.class) != null) {
-                    throw new IllegalStateException("Cannot find an internal generated type for " + ffiRawType);
+                    throw new FFIIllegalStateException("Cannot find an internal generated type for " + ffiRawType, typeElement);
                 }
             }
             return new TypeMapping(ffiRawType, theType);
@@ -1061,8 +1062,8 @@ public class TypeEnv {
                         // We have non-empty unboundTypeVariables
                         typeMapping = new TypeMapping("#" + typeVariableName, typeArg);
                     } else {
-                        throw new IllegalStateException("No mapping for TypeVariable "
-                                + typeVariableName + " in " + typeElement + "/" + theType);
+                        throw new FFIIllegalStateException("No mapping for TypeVariable "
+                                + typeVariableName + " in " + typeElement + "/" + theType, typeElement);
                     }
                 }
                 newTypeMapping[i] = typeMapping;
@@ -1078,7 +1079,7 @@ public class TypeEnv {
                     }
                 }
             } else {
-                throw new IllegalStateException("Unsupported type: " + typeArg);
+                throw new FFIIllegalStateException("Unsupported type: " + typeArg, typeElement);
             }
         }
         String cxx = null;
@@ -1087,10 +1088,10 @@ public class TypeEnv {
             try {
                 cxx = String.format(ffiRawType, Arrays.stream(parameters).toArray());
             } catch (IllegalFormatException e) {
-                throw new IllegalArgumentException("Cannot format cxx typename with \n" +
+                throw new FFIIllegalStateException("Cannot format cxx typename with \n" +
                         "\tformat: '" + ffiRawType + "'\n" +
                         "\targuments: (" + String.join(", ", parameters) + ")\n" +
-                        "with error: " + e);
+                        "with error: " + e, typeElement);
             }
         } else {
             cxx = ffiRawType + "<" + String.join(",", parameters) + ">";
@@ -1316,7 +1317,7 @@ public class TypeEnv {
             TypeMirror typeArg = interfaceTypeArguments.get(j);
             if (typeMapping != null) {
                 if (isTypeVariable(typeArg)) {
-                    throw new IllegalStateException("TypeArg should not have a configured type mapping");
+                    throw new FFIIllegalStateException("TypeArg should not have a configured type mapping", typeElement);
                 }
                 // find a configured type mapping and use it directly
                 interfaceNameToMapping.put(variableName, typeMapping);
@@ -1339,14 +1340,14 @@ public class TypeEnv {
                 typeMapping = substitute(enclosingTypeMapping, (TypeElement) declaredType.asElement(), declaredType, Collections.emptySet());
                 if (typeMapping == null) {
                     if (requireCreatingTypeMapping(declaredType)) {
-                        throw new IllegalStateException("The type argument of a super type must be bound to a foreign type.");
+                        throw new FFIIllegalStateException("The type argument of a super type must be bound to a foreign type.", typeElement);
                     }
                     continue;
                 }
                 interfaceNameToMapping.put(variableName, typeMapping);
             } else {
                 // e.g., Array
-                throw new IllegalStateException("Unsupported type: " + typeArg);
+                throw new FFIIllegalStateException("Unsupported type: " + typeArg, typeElement);
             }
         }
         return interfaceNameToMapping;
@@ -1409,7 +1410,7 @@ public class TypeEnv {
             return Collections.emptyMap();
         }
         if (typeParameters.size() != superTemplate.template().cxx().length) {
-            throw new IllegalStateException("Inconsistent number between type parameters and super template.");
+            throw new FFIIllegalStateException("Inconsistent number between type parameters and super template.", typeElement);
         }
         instantiateSuperTemplates(superTemplate);
         int size = typeParameters.size();
@@ -1459,14 +1460,16 @@ public class TypeEnv {
 
         if (isFFILibraryElement) {
             if (isFFIPointerElement) {
-                throw new IllegalStateException("A TypeElement " + theTypeElement + " cannot be both FFIPointer and FFILibrary");
+                throw new FFIIllegalStateException(
+                        "A TypeElement " + theTypeElement + " cannot be both FFIPointer and FFILibrary", theTypeElement);
             }
             return TypeGenType.FFILibrary;
         } else {
             if (isFFIPointerElement) {
                 return TypeGenType.FFIPointer;
             }
-            throw new IllegalStateException("A TypeElement " + theTypeElement + " must be either FFIPointer or FFILibrary");
+            throw new FFIIllegalStateException(
+                    "A TypeElement " + theTypeElement + " must be either FFIPointer or FFILibrary", theTypeElement);
         }
     }
 

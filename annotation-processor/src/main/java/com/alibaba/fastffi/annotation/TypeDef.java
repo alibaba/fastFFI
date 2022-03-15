@@ -269,13 +269,15 @@ public class TypeDef {
 
     void assertNotFFILibrary(String caller) {
         if (isFFILibrary()) {
-            throw new IllegalStateException("Cannot call " + caller + " on a TypeDef " + this.typeElementName + " that is an FFILibrary");
+            throw new IllegalStateException(
+                    "Cannot call " + caller + " on a TypeDef " + this.typeElementName + " that is an FFILibrary");
         }
     }
 
     void assertFFILibrary(String caller) {
         if (!isFFILibrary()) {
-            throw new IllegalStateException("Cannot call " + caller + " on a TypeDef " + this.typeElementName + " that is not an FFILibrary");
+            throw new IllegalStateException(
+                    "Cannot call " + caller + " on a TypeDef " + this.typeElementName + " that is not an FFILibrary");
         }
     }
 

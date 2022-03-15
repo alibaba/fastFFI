@@ -19,6 +19,7 @@ import com.alibaba.fastffi.CXXTemplate;
 import com.alibaba.fastffi.FFIGen;
 import com.alibaba.fastffi.FFIGenBatch;
 
+import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -127,6 +128,9 @@ public class AnnotationProcessor extends javax.annotation.processing.AbstractPro
                 }
             }
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message, exc.executableElement);
+        } catch (FFIIllegalStateException exc) {
+            String message = "IllegalStateException: " + exc.getMessage();
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message, exc.element);
         } catch (Throwable exc) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
                     "" + exc.getClass().getName() + ": " + exc.getMessage());
@@ -138,7 +142,7 @@ public class AnnotationProcessor extends javax.annotation.processing.AbstractPro
     void processTypeBatch(TypeElement typeElement, boolean gen) {
         FFIGenBatch genBatch = typeElement.getAnnotation(FFIGenBatch.class);
         if (genBatch == null) {
-            throw new IllegalStateException("Oops: must have FFIGenBatch");
+            throw new FFIIllegalStateException("Oops: must have FFIGenBatch", typeElement);
         }
         registry.processTypeBatch(processingEnv, genBatch, gen);
     }

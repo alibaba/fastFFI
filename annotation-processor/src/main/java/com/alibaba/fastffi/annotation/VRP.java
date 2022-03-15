@@ -32,7 +32,8 @@ public enum VRP {
             case Pointer:
                 return String.format("reinterpret_cast<%s*>(%s)", typeName, varName);
             default:
-                throw new IllegalStateException();
+                throw new IllegalStateException(
+                        "Invalid: in inNativeFromPointer, varName = " + varName + ", typeName = " + typeName);
         }
     }
 
@@ -52,7 +53,8 @@ public enum VRP {
             case Pointer:
                 return String.format("reinterpret_cast<jlong>(%s)", varName);
             default:
-                throw new IllegalStateException();
+                throw new IllegalStateException(
+                        "Invalid: in inNativeFromPointer, varName = " + varName + ", typeName = " + typeName + ", opto = " + opto);
         }
     }
 }

@@ -164,7 +164,7 @@ public class TypeDefGenerator extends TypeEnv {
 
     private int checkOverloading(CXXTemplate[] templates, ExecutableElement executableElement) {
         if (templates == null || templates.length == 0) {
-            throw new IllegalStateException("Templates must not be empty.");
+            throw new FFIIllegalStateException("Templates must not be empty.", executableElement);
         }
         List<? extends VariableElement> parameters = executableElement.getParameters();
         int size = parameters.size();
@@ -316,7 +316,7 @@ public class TypeDefGenerator extends TypeEnv {
                         genName = ParameterizedTypeName.get(ClassName.get(oldClassName.packageName(), oldClassName.simpleName() + "Gen"),
                                 oldParameterizedName.typeArguments.toArray(new TypeName[0]));
                     } else {
-                        throw new IllegalStateException("Should not reach here");
+                        throw new FFIIllegalStateException("Should not reach here", theTypeElement);
                     }
                     classBuilder.addSuperinterface(genName);
                 }
@@ -1685,10 +1685,12 @@ public class TypeDefGenerator extends TypeEnv {
                         throw reportError(executableElement, "Missing type mapping for return type: " + returnType);
                     }
                     if (!typeUtils().isAssignable(returnTypeMapping.java, returnType)) {
-                        throw new IllegalStateException(String.format("%s != %s", returnType, returnTypeMapping.java));
+                        throw new FFIIllegalStateException(
+                                String.format("%s != %s", returnType, returnTypeMapping.java), executableElement);
                     }
                     if (!typeUtils().isAssignable(factoryObjectType, returnType)) {
-                        throw new IllegalStateException(String.format("%s != %s", returnType, factoryObjectType));
+                        throw new FFIIllegalStateException(
+                                String.format("%s != %s", returnType, factoryObjectType), executableElement);
                     }
                     String javaSimpleName = getGeneratedJavaSimpleClassName();
                     sb.append("return new ").append(javaSimpleName).append("(").append(javaSimpleName).append(".").append(
@@ -2210,7 +2212,8 @@ public class TypeDefGenerator extends TypeEnv {
             return; // already have code.
         }
         if (executableElement.isVarArgs()) {
-            throw new IllegalStateException("TODO: no support of varargs in " + AnnotationProcessorUtils.format(executableElement));
+            throw new FFIIllegalStateException(
+                    "TODO: no support of varargs in " + AnnotationProcessorUtils.format(executableElement), executableElement);
         }
 
         if (generateFFIProperty(executableDef)) {
@@ -2240,7 +2243,7 @@ public class TypeDefGenerator extends TypeEnv {
         boolean hasCopyToNativeParameters = parameterElements.stream().anyMatch(p -> !skipParameter(p));
         List<? extends TypeMirror> parameterTypes = executableType.getParameterTypes();
         if (parameterElements.size() != parameterTypes.size()) {
-            throw new IllegalStateException();
+            throw new FFIIllegalStateException("parameterElements.size() != parameterTypes.size()", executableElement);
         }
         TypeMirror returnType = executableType.getReturnType();
         boolean needCXXValueOpto = needCXXValueOptimization(executableElement, executableType);
@@ -2966,7 +2969,8 @@ public class TypeDefGenerator extends TypeEnv {
                 }
             }
             if (currentTypeElement.getSuperclass().getKind() != TypeKind.NONE) {
-                throw new IllegalArgumentException("We can only handle interface whose super class is always null: " + currentTypeElement.getSuperclass());
+                throw new FFIIllegalStateException(
+                        "We can only handle interface whose super class is always null: " + currentTypeElement.getSuperclass(), currentTypeElement);
             }
             List<? extends TypeMirror> directSuperTypes = typeUtils.directSupertypes(currentTypeMirror);
             if (directSuperTypes.size() > 1) {
@@ -2977,7 +2981,8 @@ public class TypeDefGenerator extends TypeEnv {
                     DeclaredType check = nameToSupertype.get(FQN);
                     if (check != null) {
                         if (!typeUtils().isSameType(interfaceMirror, check)) {
-                            throw new IllegalStateException("Cannot inherit two interface with different type: got " + interfaceMirror + ", expected " + check);
+                            throw new FFIIllegalStateException(
+                                    "Cannot inherit two interface with different type: got " + interfaceMirror + ", expected " + check, currentTypeElement);
                         } else {
                             continue;
                         }

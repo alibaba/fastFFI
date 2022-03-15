@@ -452,7 +452,7 @@ public class TypeDefRegistry {
                 processType(processingEnv, theTypeElement, gen, doGen);
             } else {
                 if (templates.length == 0) {
-                    throw new IllegalStateException("A generic type requires CXXTemplate: " + gen);
+                    throw new FFIIllegalStateException("A generic type requires CXXTemplate: " + gen, theTypeElement);
                 }
                 for (CXXTemplate template : templates) {
                     processType(processingEnv, theTypeElement, gen, template, doGen);
