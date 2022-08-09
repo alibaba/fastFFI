@@ -113,7 +113,6 @@ public enum AttrKind implements CXXEnum {
     Availability(Library.INSTANCE.Availability()),
     BPFPreserveAccessIndex(Library.INSTANCE.BPFPreserveAccessIndex()),
     Blocks(Library.INSTANCE.Blocks()),
-    Builtin(Library.INSTANCE.Builtin()),
     C11NoReturn(Library.INSTANCE.C11NoReturn()),
     CFAuditedTransfer(Library.INSTANCE.CFAuditedTransfer()),
     CFGuard(Library.INSTANCE.CFGuard()),
@@ -439,7 +438,6 @@ public enum AttrKind implements CXXEnum {
         @FFIGetter int Availability();
         @FFIGetter int BPFPreserveAccessIndex();
         @FFIGetter int Blocks();
-        @FFIGetter int Builtin();
         @FFIGetter int C11NoReturn();
         @FFIGetter int CFAuditedTransfer();
         @FFIGetter int CFGuard();

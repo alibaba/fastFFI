@@ -21,36 +21,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux-ci:
+  fastffi-ci:
     runs-on: ubuntu-20.04
-    container: teeks99/clang-ubuntu:11
+    container: vineyardcloudnative/manylinux2010-llvm11:latest
     steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions/setup-java@v2
-        with:
-          distribution: 'adopt'
-          java-version: '8'
-          cache: 'maven'
-
-      - name: Set up Maven
-        uses: stCarolas/setup-maven@master
-        with:
-          maven-version: 3.8.4
+      - uses: actions/checkout@v1
 
       - name: Install dependencies
-        env:
-          LLVM11_HOME: /usr/lib/llvm-11
         run: |
-          # check os
-          apt-get update
-          apt-get install -y screenfetch python3-pip
-          pip3 install cmake
+          curl -L https://git.io/vaHfR --output /usr/local/bin/screenfetch
+          chmod +x /usr/local/bin/screenfetch
+
+      - name: Setup Java
+        env:
+          LLVM11_HOME: /opt/llvm11.0.0
+          JAVA_HOME: /usr/lib/jvm/java-8-zulu-amd64
+        run: |
+          curl -L -O https://cdn.azul.com/zulu/bin/zulu8.64.0.19-ca-jdk8.0.345-linux_x64.tar.gz
+          tar zxf zulu8.64.0.19-ca-jdk8.0.345-linux_x64.tar.gz
+          mkdir -p $(dirname $JAVA_HOME)
+          mv zulu8.64.0.19-ca-jdk8.0.345-linux_x64 $JAVA_HOME
+
+      - name: Setup Maven
+        env:
+          LLVM11_HOME: /opt/llvm11.0.0
+          JAVA_HOME: /usr/lib/jvm/java-8-zulu-amd64
+          MAVEN_HOME: /usr/lib/jvm/maven
+        run: |
+          curl -L -O https://dlcdn.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz
+          tar zxf apache-maven-3.8.6-bin.tar.gz
+          mkdir -p $(dirname $MAVEN_HOME)
+          mv apache-maven-3.8.6 $MAVEN_HOME
 
       - name: Check environment
         env:
-          LLVM11_HOME: /usr/lib/llvm-11
+          LLVM11_HOME: /opt/llvm11.0.0
+          JAVA_HOME: /usr/lib/jvm/java-8-zulu-amd64
+          MAVEN_HOME: /usr/lib/jvm/maven
         run: |
+          export PATH=$PATH:$LLVM11_HOME/bin:$JAVA_HOME/bin:$MAVEN_HOME/bin
+
           # check os
           echo "########################################### checking os ..."
           screenfetch
@@ -75,9 +85,22 @@ jobs:
           echo "########################################### checking maven ..."
           mvn --version
 
-      - name: Build and test
+      - name: Build, test and install
         env:
-          LLVM11_HOME: /usr/lib/llvm-11
+          LLVM11_HOME: /opt/llvm11.0.0
+          JAVA_HOME: /usr/lib/jvm/java-8-zulu-amd64
+          MAVEN_HOME: /usr/lib/jvm/maven
           MAVEN_ARGS: "--no-transfer-progress"
         run: |
+          export PATH=$PATH:$LLVM11_HOME/bin:$JAVA_HOME/bin:$MAVEN_HOME/bin
+
           ./build.sh
+
+      - name: Packaging artifacts inside the container
+        run: |
+          tar zcvf fastffi-jars-x86-64-manylinux2010.tar.gz /root/.m2/repository/com/alibaba/fastffi
+
+      - uses: actions/upload-artifact@v1
+        with:
+          name: fastffi-jars-x86-64-manylinux2010
+          path: fastffi-jars-x86-64-manylinux2010.tar.gz

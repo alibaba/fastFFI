@@ -14,7 +14,10 @@
 cmake_minimum_required(VERSION 3.8)
 project(LLVM4JNI)
 
-set(CMAKE_C_STANDARD 14)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
+
+option(USE_LIB_LLVM "Link against the libLLVM.so rather than component libraries" OFF)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
 SET(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -fprofile-arcs -ftest-coverage")
@@ -49,7 +52,7 @@ add_library(${LIBNAME} SHARED ${SOURCES})
 
 # Fixes the "LLVM ERROR: inconsistency in registered CommandLine options" error
 find_library(LIB_LLVM LLVM HINTS ${LLVM_LIBRARY_DIRS})
-if(LIB_LLVM)
+if(USE_LIB_LLVM AND LIB_LLVM)
     message(STATUS "Use the LLVM library: ${LIB_LLVM}")
     set(llvm_libs ${LIB_LLVM})
 else()
@@ -60,22 +63,15 @@ endif()
 
 target_link_libraries(${LIBNAME} ${llvm_libs} ${CMAKE_JNI_LINKER_FLAGS}
     clangAnalysis
-    clangApplyReplacements
     clangARCMigrate
     clangAST
     clangASTMatchers
     clangBasic
-    clangChangeNamespace
     clangCodeGen
     clangCrossTU
-    clangDaemon
-    clangDaemonTweaks
     clangDependencyScanning
     clangDirectoryWatcher
-    clangDoc
-    clangdRemoteIndex
     clangDriver
-    clangdSupport
     clangDynamicASTMatchers
     clangEdit
     clangFormat
@@ -83,14 +79,9 @@ target_link_libraries(${LIBNAME} ${llvm_libs} ${CMAKE_JNI_LINKER_FLAGS}
     clangFrontendTool
     clangHandleCXX
     clangHandleLLVM
-    clangIncludeFixer
-    clangIncludeFixerPlugin
     clangIndex
     clangLex
-    clangMove
     clangParse
-    clangQuery
-    clangReorderFields
     clangRewrite
     clangRewriteFrontend
     clangSema
@@ -99,32 +90,6 @@ target_link_libraries(${LIBNAME} ${llvm_libs} ${CMAKE_JNI_LINKER_FLAGS}
     clangStaticAnalyzerCore
     clangStaticAnalyzerFrontend
     clangTesting
-    clangTidy
-    clangTidyAbseilModule
-    clangTidyAndroidModule
-    clangTidyBoostModule
-    clangTidyBugproneModule
-    clangTidyCERTModule
-    clangTidyCppCoreGuidelinesModule
-    clangTidyDarwinModule
-    clangTidyFuchsiaModule
-    clangTidyGoogleModule
-    clangTidyHICPPModule
-    clangTidyLinuxKernelModule
-    clangTidyLLVMLibcModule
-    clangTidyLLVMModule
-    clangTidyMain
-    clangTidyMiscModule
-    clangTidyModernizeModule
-    clangTidyMPIModule
-    clangTidyObjCModule
-    clangTidyOpenMPModule
-    clangTidyPerformanceModule
-    clangTidyPlugin
-    clangTidyPortabilityModule
-    clangTidyReadabilityModule
-    clangTidyUtils
-    clangTidyZirconModule
     clangTooling
     clangToolingASTDiff
     clangToolingCore
