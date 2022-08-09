@@ -82,6 +82,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <environmentVariables>
+                        <LD_LIBRARY_PATH>${project.basedir}/target/native</LD_LIBRARY_PATH>
+                    </environmentVariables>
                     <argLine>@{argLine} -Dtest.tmpdir=${project.basedir}/target/testtmp -Djava.library.path=${project.basedir}/target/native</argLine>
                 </configuration>
             </plugin>

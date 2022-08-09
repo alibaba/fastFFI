@@ -187,6 +187,9 @@
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <environmentVariables>
+                        <LD_LIBRARY_PATH>${project.basedir}/target/native</LD_LIBRARY_PATH>
+                    </environmentVariables>
                     <argLine>-Djava.library.path=${project.basedir}/target/native</argLine>
                 </configuration>
             </plugin>

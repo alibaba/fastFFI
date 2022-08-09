@@ -55,6 +55,9 @@
                 <configuration>
                     <!-- TODO: Workaround for failing passing LD_LIBRARY_PATH to test -->
                     <workingDirectory>${project.basedir}/target/native</workingDirectory>
+                    <environmentVariables>
+                        <LD_LIBRARY_PATH>${project.basedir}/target/native</LD_LIBRARY_PATH>
+                    </environmentVariables>
                     <argLine>@{argLine} -Djava.library.path=${project.basedir}/../llvm/target/native:${project.basedir}/target/native</argLine>
                 </configuration>
             </plugin>
