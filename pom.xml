@@ -21,7 +21,48 @@
     <groupId>com.alibaba.fastffi</groupId>
     <artifactId>fastffi-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.1</version>
+    <version>${revision}</version>
+
+    <name>fastFFI Parent</name>
+    <description>Modern and Efficient FFI for Java and C++</description>
+    <url>https://github.com/alibaba/fastFFI</url>
+    <organization>
+        <name>Alibaba Group Holding Ltd.</name>
+        <url>https://github.com/alibaba</url>
+    </organization>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>actable</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Tianxiao Gu</name>
+            <email>tianxiao.gu@alibaba-inc.com</email>
+            <organization>Alibaba</organization>
+        </developer>
+        <developer>
+            <name>Denghui Dong</name>
+            <email>denghui.ddh@alibaba-inc.com</email>
+            <organization>Alibaba</organization>
+        </developer>
+        <developer>
+            <name>Tao He</name>
+            <email>sighingnow@gmail.com</email>
+            <organization>Alibaba</organization>
+        </developer>
+    </developers>
+
+    <scm>
+        <tag>main</tag>
+        <url>git@github.com:alibaba/fastFFI.git</url>
+        <connection>git@github.com:alibaba/fastFFI.git</connection>
+        <developerConnection>git@github.com:alibaba/fastFFI.git</developerConnection>
+    </scm>
 
     <modules>
         <module>ffi</module>
@@ -33,9 +74,8 @@
         <module>test</module>
     </modules>
 
-    <name>fastFFI Parent</name>
-
     <properties>
+        <revision>0.1.1</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.source>8</maven.compiler.source>
@@ -46,6 +86,7 @@
         <javapoet.version>1.13.0</javapoet.version>
         <compile.testing.version>0.19</compile.testing.version>
         <junit.version>4.12</junit.version>
+        <staging.repository></staging.repository>
     </properties>
 
     <dependencies>
@@ -186,8 +227,85 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
                     <version>3.2.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>2.5.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonatype.plugins</groupId>
+                    <artifactId>nexus-staging-maven-plugin</artifactId>
+                    <version>1.6.13</version>
+                    <extensions>true</extensions>
+                    <executions>
+                        <execution>
+                            <id>default-deploy</id>
+                            <phase>deploy</phase>
+                            <goals>
+                                <goal>deploy</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                     <configuration>
-                        <classifier>${os.detected.classifier}</classifier>
+                        <serverId>ossrh</serverId>
+                        <nexusUrl>https://oss.sonatype.org</nexusUrl>
+                        <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                        <skipStagingRepositoryClose>true</skipStagingRepositoryClose>
+                        <stagingRepositoryId>${staging.repository}</stagingRepositoryId>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.2.1</version>
+                    <executions>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals>
+                                <goal>jar-no-fork</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.4.1</version>
+                    <configuration>
+                        <javadocExecutable>${java.home}/../bin/javadoc</javadocExecutable>
+                        <doclint>none</doclint>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>attach-javadocs</id>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>3.0.1</version>
+                    <executions>
+                        <execution>
+                            <id>sign-artifacts</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>sign</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin> 
+                    <!-- explicitly define maven-deploy-plugin after other to force exec order -->
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId> 
+                    <version>3.0.0-M2</version>
+                    <configuration>
+                        <skip>true</skip>
                     </configuration>
                 </plugin>
             </plugins>
@@ -226,6 +344,37 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>release</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-deploy-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nexus-staging-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>default-deploy</id>
+                                <phase>deploy</phase>
+                                <goals>
+                                    <goal>deploy</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
     <pluginRepositories>
@@ -254,4 +403,16 @@
         </repository>
     </repositories>
 
+    <distributionManagement>
+        <snapshotRepository>
+            <id>sonatype-nexus-snapshots</id>
+            <name>Sonatype Nexus Snapshots</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <name>Central Repository OSSRH</name>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+    </distributionManagement>
 </project>

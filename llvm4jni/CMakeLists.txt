@@ -20,6 +20,12 @@ file(GLOB SOURCES "target/generated-sources/annotations/*.cc" "target/generated-
 
 set(LIBNAME "llvm4jni-test")
 
+find_program(ccache_EXECUTABLE ccache)
+if(ccache_EXECUTABLE)
+    set(CMAKE_C_COMPILER_LAUNCHER: ${ccache_EXECUTABLE})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${ccache_EXECUTABLE})
+endif(ccache_EXECUTABLE)
+
 set(JAVA_AWT_LIBRARY NotNeeded)
 set(JAVA_AWT_INCLUDE_PATH NotNeeded)
 find_package(JNI REQUIRED)

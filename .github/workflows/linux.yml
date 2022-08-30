@@ -14,16 +14,23 @@
 
 name: CI on Linux
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
+env:
+  CMAKE_C_COMPILER_LAUNCHER: ccache
+  CMAKE_CXX_COMPILER_LAUNCHER: ccache
+
+  MAVEN_ARGS: "--no-transfer-progress"
+  LLVM11_HOME: /opt/llvm11.0.0
+
 jobs:
   fastffi-ci:
     runs-on: ubuntu-20.04
-    container: vineyardcloudnative/manylinux2010-llvm11:latest
+    container: vineyardcloudnative/manylinux-llvm:2014-11.0.0
     steps:
       - uses: actions/checkout@v1
 
@@ -32,32 +39,31 @@ jobs:
           curl -L https://git.io/vaHfR --output /usr/local/bin/screenfetch
           chmod +x /usr/local/bin/screenfetch
 
-      - name: Setup Java
-        env:
-          LLVM11_HOME: /opt/llvm11.0.0
-          JAVA_HOME: /usr/lib/jvm/java-8-zulu-amd64
-        run: |
-          curl -L -O https://cdn.azul.com/zulu/bin/zulu8.64.0.19-ca-jdk8.0.345-linux_x64.tar.gz
-          tar zxf zulu8.64.0.19-ca-jdk8.0.345-linux_x64.tar.gz
-          mkdir -p $(dirname $JAVA_HOME)
-          mv zulu8.64.0.19-ca-jdk8.0.345-linux_x64 $JAVA_HOME
+          yum install -y ccache
 
-      - name: Setup Maven
-        env:
-          LLVM11_HOME: /opt/llvm11.0.0
-          JAVA_HOME: /usr/lib/jvm/java-8-zulu-amd64
-          MAVEN_HOME: /usr/lib/jvm/maven
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'adopt'
+          java-version: '8'
+          cache: 'maven'
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.OSSRH_MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Set up Maven
+        uses: stCarolas/setup-maven@master
+        with:
+          maven-version: 3.8.4
+
+      - name: Validate settings
         run: |
-          curl -L -O https://dlcdn.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz
-          tar zxf apache-maven-3.8.6-bin.tar.gz
-          mkdir -p $(dirname $MAVEN_HOME)
-          mv apache-maven-3.8.6 $MAVEN_HOME
+          mkdir -p /root/.m2
+          cp /github/home/.m2/settings.xml /root/.m2/settings.xml || true
+          cat /root/.m2/settings.xml
 
       - name: Check environment
-        env:
-          LLVM11_HOME: /opt/llvm11.0.0
-          JAVA_HOME: /usr/lib/jvm/java-8-zulu-amd64
-          MAVEN_HOME: /usr/lib/jvm/maven
         run: |
           export PATH=$PATH:$LLVM11_HOME/bin:$JAVA_HOME/bin:$MAVEN_HOME/bin
 
@@ -86,21 +92,37 @@ jobs:
           mvn --version
 
       - name: Build, test and install
-        env:
-          LLVM11_HOME: /opt/llvm11.0.0
-          JAVA_HOME: /usr/lib/jvm/java-8-zulu-amd64
-          MAVEN_HOME: /usr/lib/jvm/maven
-          MAVEN_ARGS: "--no-transfer-progress"
         run: |
           export PATH=$PATH:$LLVM11_HOME/bin:$JAVA_HOME/bin:$MAVEN_HOME/bin
 
           ./build.sh
 
+      - name: Publish package
+        if: ${{ github.event_name == 'workflow_dispatch' && github.repository == 'alibaba/fastFFI' }}
+        env:
+          MAVEN_USERNAME: ${{ secrets.OSSRH_MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_MAVEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.OSSRH_MAVEN_GPG_PASSPHRASE }}
+        run: |
+          export PATH=$PATH:$LLVM11_HOME/bin:$JAVA_HOME/bin:$MAVEN_HOME/bin
+
+          # staging profile id: obtained from "mvn nexus-staging:rc-list-profiles"
+          # staging repository id: obtained from "mvn nexus-staging:rc-open"
+
+          mvn --batch-mode deploy \
+            -Prelease \
+            -Dmaven.deploy.skip=true \
+            -Dstaging.repository=${{ secrets.OSSRH_MAVEN_STAGING_REPOSITORY_ID }} \
+            -DstagingProfileId=${{ secrets.OSSRH_MAVEN_STAGING_PROFILE_ID }} \
+            -DstagingRepositoryId=${{ secrets.OSSRH_MAVEN_STAGING_REPOSITORY_ID }} \
+            -Dgpg.passphrase=${{ secrets.OSSRH_MAVEN_GPG_PASSPHRASE }} \
+            -DskipTests
+
       - name: Packaging artifacts inside the container
         run: |
-          tar zcvf fastffi-jars-x86-64-manylinux2010.tar.gz /root/.m2/repository/com/alibaba/fastffi
+          tar zcvf fastffi-jars-x86-64-manylinux2014.tar.gz /root/.m2/repository/com/alibaba/fastffi
 
       - uses: actions/upload-artifact@v1
         with:
-          name: fastffi-jars-x86-64-manylinux2010
-          path: fastffi-jars-x86-64-manylinux2010.tar.gz
+          name: fastffi-jars-x86-64-manylinux2014
+          path: fastffi-jars-x86-64-manylinux2014.tar.gz

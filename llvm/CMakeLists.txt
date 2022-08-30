@@ -25,8 +25,8 @@ SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -g")
 
 find_program(ccache_EXECUTABLE ccache)
 if(ccache_EXECUTABLE)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${ccache_EXECUTABLE})
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${ccache_EXECUTABLE})
+    set(CMAKE_C_COMPILER_LAUNCHER: ${ccache_EXECUTABLE})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${ccache_EXECUTABLE})
 endif(ccache_EXECUTABLE)
 
 file(GLOB SOURCES "target/generated-sources/annotations/*.cc")

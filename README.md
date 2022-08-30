@@ -35,24 +35,28 @@ Basically, the build procedure the following binary:
 3. Use fastFFI with Maven.
 
 ```xml
+<properties>
+    <fastffi.revision>0.1.1</fastffi.revision>
+</properties>
+
 <dependencies>
     <!-- The FFI annotation -->
     <dependency>
         <groupId>com.alibaba.fastffi</groupId>
         <artifactId>ffi</artifactId>
-        <version>0.1</version>
+        <version>${fastffi.revision}</version>
     </dependency>
     <!-- The FFI annotation processor for code generation -->
     <dependency>
         <groupId>com.alibaba.fastffi</groupId>
         <artifactId>annotation-processor</artifactId>
-        <version>0.1</version>
+        <version>${revision}</version>
     </dependency>
     <!-- The runtime component of LLVM4JNI -->
     <dependency>
         <groupId>com.alibaba.fastffi</groupId>
         <artifactId>llvm4jni-runtime</artifactId>
-        <version>0.1</version>
+        <version>${revision}</version>
     </dependency>
 </dependencies>
 ```
