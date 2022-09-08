@@ -80,7 +80,6 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
-        <ffi.version>0.1</ffi.version>
         <asm.version>9.0</asm.version>
         <jnr.version>2.2.12</jnr.version>
         <javapoet.version>1.13.0</javapoet.version>
@@ -103,27 +102,27 @@
             <dependency>
                 <groupId>com.alibaba.fastffi</groupId>
                 <artifactId>ffi</artifactId>
-                <version>${ffi.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.alibaba.fastffi</groupId>
                 <artifactId>annotation-processor</artifactId>
-                <version>${ffi.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.alibaba.fastffi</groupId>
                 <artifactId>llvm</artifactId>
-                <version>${ffi.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.alibaba.fastffi</groupId>
                 <artifactId>llvm4jni</artifactId>
-                <version>${ffi.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.alibaba.fastffi</groupId>
                 <artifactId>llvm4jni-runtime</artifactId>
-                <version>${ffi.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.squareup</groupId>

@@ -20,13 +20,17 @@
     <parent>
         <groupId>com.alibaba.fastffi</groupId>
         <artifactId>fastffi-parent</artifactId>
-        <version>0.1.1</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>llvm4jni-runtime</artifactId>
 
     <name>LLVM4JNI Runtime</name>
+
+    <properties>
+        <revision>0.1.1</revision>
+    </properties>
 
     <dependencies>
         <dependency>

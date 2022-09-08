@@ -22,7 +22,7 @@
     <parent>
         <groupId>com.alibaba.fastffi</groupId>
         <artifactId>fastffi-parent</artifactId>
-        <version>0.1.1</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>llvm</artifactId>
@@ -30,6 +30,7 @@
     <name>LLVM</name>
 
     <properties>
+        <revision>0.1.1</revision>
         <native.library.name>llvm4jni</native.library.name>
         <cmake.flags>-DLLVM_DIR=${env.LLVM11_HOME}/lib/cmake/llvm -DClang_DIR=${env.LLVM11_HOME}/lib/cmake/clang</cmake.flags>
     </properties>
