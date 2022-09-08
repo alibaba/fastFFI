@@ -22,11 +22,17 @@
         <property environment="env"/>
         <fail unless="env.LLVM11_HOME" message="LLVM11_HOME not set."/>
 
-        <condition property="platform" value="linux64"><os family="unix" arch="amd64" />
+        <condition property="platform" value="linux64">
+            <os family="unix" arch="amd64" />
         </condition>
 
-        <condition property="platform" value="mac"><os family="mac" arch="x86_64" />
+        <condition property="platform" value="mac">
+            <os family="mac" arch="x86_64" />
         </condition>
+
+        <exec executable="nproc" outputproperty="cores.count">
+            <arg value="--all"/>
+        </exec>
 
         <fail unless="platform" message="Not a supported platform."/>
 
@@ -57,7 +63,7 @@
         </exec>
 
         <exec executable="make" dir="${project.build.directory}/native" failonerror="true">
-            <arg line="VERBOSE=1 -j8"/>
+            <arg line="VERBOSE=1 -j${cores.count}"/>
         </exec>
     </target>
 
@@ -72,6 +78,5 @@
             <arg line="${native.library.name}.bc ${project.build.directory}/classes"/>
         </exec>
     </target>
-
 
 </project>

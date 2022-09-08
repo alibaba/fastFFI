@@ -50,13 +50,13 @@ Basically, the build procedure the following binary:
     <dependency>
         <groupId>com.alibaba.fastffi</groupId>
         <artifactId>annotation-processor</artifactId>
-        <version>${revision}</version>
+        <version>${fastffi.revision}</version>
     </dependency>
     <!-- The runtime component of LLVM4JNI -->
     <dependency>
         <groupId>com.alibaba.fastffi</groupId>
         <artifactId>llvm4jni-runtime</artifactId>
-        <version>${revision}</version>
+        <version>${fastffi.revision}</version>
     </dependency>
 </dependencies>
 ```

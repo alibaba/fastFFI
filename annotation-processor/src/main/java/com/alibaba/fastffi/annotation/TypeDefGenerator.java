@@ -703,7 +703,7 @@ public class TypeDefGenerator extends TypeEnv {
         }
         CXXSuperTemplate[] superTemplates = typeElement.getAnnotationsByType(CXXSuperTemplate.class);
         Set<String> processed = new HashSet<>();
-        if (superTemplates == null) {
+        if (superTemplates != null) {
             for (CXXSuperTemplate superTemplate : superTemplates) {
                 instantiateSuperTemplates(superTemplate);
                 processed.add(superTemplate.type());
@@ -735,7 +735,11 @@ public class TypeDefGenerator extends TypeEnv {
                 // we cannot automatically instantiate it
                 continue;
             }
-            registry.processType(processingEnv, superElement, getCXXTemplate(parameterMapping, heads), true);
+            try {
+                registry.processType(processingEnv, superElement, getCXXTemplate(parameterMapping, heads), true);
+            } catch (IllegalStateException e) {
+                // ignore
+            }
             processed.add(superBaseName);
         }
     }
