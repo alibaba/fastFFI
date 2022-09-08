@@ -173,9 +173,6 @@ public class TypeDefRegistry {
             this.FFITemplateDefMap.put(key, def);
             return true;
         }
-        if (!isSameFFIGen(check.getFFIGen(), def.getFFIGen())) {
-            throw new IllegalStateException("A TypeDef has accepted two generation requests: " + check + " vs. " + def);
-        }
         return false;
     }
 
