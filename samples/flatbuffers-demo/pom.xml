@@ -25,6 +25,31 @@
 
     <name>FlatBuffers FFI Demo</name>
 
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <fastffi.version>0.1.1</fastffi.version>
+
+        <!--
+            JMH version to use with this project.
+          -->
+        <jmh.version>1.25.2</jmh.version>
+
+        <!--
+            Java source/target to use for compilation.
+          -->
+        <javac.target>1.8</javac.target>
+
+        <!--
+            Name of the benchmark Uber-JAR to generate.
+          -->
+        <uberjar.name>benchmarks</uberjar.name>
+        <powermock.version>2.0.9</powermock.version>
+
+        <native.library.name>fbffidemo</native.library.name>
+
+        <flatbuffers.version>2.0.0</flatbuffers.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
@@ -48,19 +73,19 @@
         <dependency>
             <groupId>com.alibaba.fastffi</groupId>
             <artifactId>annotation-processor</artifactId>
-            <version>0.1</version>
+            <version>${fastffi.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.alibaba.fastffi</groupId>
             <artifactId>llvm4jni-runtime</artifactId>
-            <version>0.1</version>
+            <version>${fastffi.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.alibaba.fastffi</groupId>
             <artifactId>llvm4jni</artifactId>
-            <version>0.1</version>
+            <version>${fastffi.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -85,30 +110,6 @@
         </dependency>
 
     </dependencies>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
-        <!--
-            JMH version to use with this project.
-          -->
-        <jmh.version>1.25.2</jmh.version>
-
-        <!--
-            Java source/target to use for compilation.
-          -->
-        <javac.target>1.8</javac.target>
-
-        <!--
-            Name of the benchmark Uber-JAR to generate.
-          -->
-        <uberjar.name>benchmarks</uberjar.name>
-        <powermock.version>2.0.9</powermock.version>
-
-        <native.library.name>fbffidemo</native.library.name>
-
-        <flatbuffers.version>2.0.0</flatbuffers.version>
-    </properties>
 
     <build>
         <plugins>
