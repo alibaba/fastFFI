@@ -33,7 +33,7 @@
         <condition property="cores.count" value="4">
             <os family="mac" arch="x86_64" />
         </condition>
-        <exec executable="nproc" failonerror="false" osfamily="unix" outputproperty="cores.count">
+        <exec executable="nproc" failonerror="false" failifexecutionfails="false" osfamily="unix" outputproperty="cores.count">
             <arg value="--all"/>
         </exec>
 
