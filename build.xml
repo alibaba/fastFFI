@@ -30,7 +30,10 @@
             <os family="mac" arch="x86_64" />
         </condition>
 
-        <exec executable="nproc" outputproperty="cores.count">
+        <condition property="cores.count" value="4">
+            <os family="mac" arch="x86_64" />
+        </condition>
+        <exec executable="nproc" failonerror="false" osfamily="unix" outputproperty="cores.count">
             <arg value="--all"/>
         </exec>
 
@@ -62,6 +65,7 @@
             <arg line="-DCMAKE_C_COMPILER=&quot;${env.LLVM11_HOME}/bin/clang&quot; -DCMAKE_CXX_COMPILER=&quot;${env.LLVM11_HOME}/bin/clang++&quot; -DCMAKE_CXX_FLAGS=&quot;-fforce-emit-vtables -flto -frtti&quot; ${cmake.flags} ${basedir}"/>
         </exec>
 
+        <echo message="Make Flags: -j${cores.count}" level="info"/>
         <exec executable="make" dir="${project.build.directory}/native" failonerror="true">
             <arg line="VERBOSE=1 -j${cores.count}"/>
         </exec>
