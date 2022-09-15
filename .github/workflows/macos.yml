@@ -38,8 +38,9 @@ jobs:
 
       - uses: actions/setup-java@v3
         with:
-          distribution: 'adopt'
+          distribution: 'zulu'
           java-version: '8'
+          java-package: 'jdk'
           cache: 'maven'
           server-id: ossrh
           server-username: MAVEN_USERNAME
