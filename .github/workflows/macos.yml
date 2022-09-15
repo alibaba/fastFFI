@@ -60,6 +60,11 @@ jobs:
       - name: Check environment
         run: |
           export LLVM11_HOME=$(brew --prefix llvm@11)
+          export PATH=$LLVM11_HOME/bin:$JAVA_HOME/bin:$MAVEN_HOME/bin:$PATH
+
+          echo "JAVA_HOME = ${JAVA_HOME}"
+          echo "MAVEN_HOME = ${MAVEN_HOME}"
+          echo "PATH = ${PATH}"
 
           # check os
           echo "########################################### checking os ..."
