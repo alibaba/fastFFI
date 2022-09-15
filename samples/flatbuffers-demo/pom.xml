@@ -27,7 +27,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <fastffi.version>0.1.1</fastffi.version>
+        <fastffi.version>0.1.2</fastffi.version>
 
         <!--
             JMH version to use with this project.

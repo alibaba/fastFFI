@@ -36,7 +36,7 @@ Basically, the build procedure the following binary:
 
 ```xml
 <properties>
-    <fastffi.revision>0.1.1</fastffi.revision>
+    <fastffi.revision>0.1.2</fastffi.revision>
 </properties>
 
 <dependencies>
@@ -57,6 +57,7 @@ Basically, the build procedure the following binary:
         <groupId>com.alibaba.fastffi</groupId>
         <artifactId>llvm4jni-runtime</artifactId>
         <version>${fastffi.revision}</version>
+        <classifier>${os.detected.classifier}</classifier>
     </dependency>
 </dependencies>
 ```
