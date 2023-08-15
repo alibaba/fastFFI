@@ -12,58 +12,81 @@ An FFI application must include `ffi` and `llvm4jni-runtime` in its class path a
 
 ## Build
 
-1. Checkout source code 
+1. Checkout source code
 
-```bash
-git clone <path-to-fastffi> fastffi
-```
+    ```bash
+    git clone <path-to-fastffi> fastffi
+    ```
 
 2. Prepare building environment
 
-```bash
-export LLVM11_HOME=<path-to-llvm-11>
-```
+    ```bash
+    export LLVM11_HOME=<path-to-llvm-11>
+    ```
 
-`LLVM11_HOME` should point to the home of LLVM 11. In Ubuntu, it is at `/usr/lib/llvm-11`.
-Basically, the build procedure the following binary:
+    `LLVM11_HOME` should point to the home of LLVM 11. In Ubuntu, it is at `/usr/lib/llvm-11`.
+    Basically, the build procedure the following binary:
 
-* `$LLVM11_HOME/bin/clang++`
-* `$LLVM11_HOME/bin/ld.lld`
-* `$LLVM11_HOME/lib/cmake/llvm`
+    * `$LLVM11_HOME/bin/clang++`
+    * `$LLVM11_HOME/bin/ld.lld`
+    * `$LLVM11_HOME/lib/cmake/llvm`
 
 
 3. Use fastFFI with Maven.
 
-```xml
-<properties>
-    <fastffi.revision>0.1.2</fastffi.revision>
-</properties>
+    ```xml
+    <properties>
+        <fastffi.revision>0.1.2</fastffi.revision>
+    </properties>
 
-<dependencies>
-    <!-- The FFI annotation -->
-    <dependency>
-        <groupId>com.alibaba.fastffi</groupId>
-        <artifactId>ffi</artifactId>
-        <version>${fastffi.revision}</version>
-    </dependency>
-    <!-- The FFI annotation processor for code generation -->
-    <dependency>
-        <groupId>com.alibaba.fastffi</groupId>
-        <artifactId>annotation-processor</artifactId>
-        <version>${fastffi.revision}</version>
-    </dependency>
-    <!-- The runtime component of LLVM4JNI -->
-    <dependency>
-        <groupId>com.alibaba.fastffi</groupId>
-        <artifactId>llvm4jni-runtime</artifactId>
-        <version>${fastffi.revision}</version>
-        <classifier>${os.detected.classifier}</classifier>
-    </dependency>
-</dependencies>
-```
+    <dependencies>
+        <!-- The FFI annotation -->
+        <dependency>
+            <groupId>com.alibaba.fastffi</groupId>
+            <artifactId>ffi</artifactId>
+            <version>${fastffi.revision}</version>
+        </dependency>
+        <!-- The FFI annotation processor for code generation -->
+        <dependency>
+            <groupId>com.alibaba.fastffi</groupId>
+            <artifactId>annotation-processor</artifactId>
+            <version>${fastffi.revision}</version>
+        </dependency>
 
-4. Use maven to build your applications. The generated code, including Java and C++ code, is available in `<project.dir>/target/generated-source/annotations`
+        <!-- The runtime component of LLVM4JNI -->
+        <dependency>
+            <groupId>com.alibaba.fastffi</groupId>
+            <artifactId>llvm4jni</artifactId>
+            <version>${fastffi.revision}</version>
+            <classifier>${os.detected.classifier}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.fastffi</groupId>
+            <artifactId>llvm4jni-runtime</artifactId>
+            <version>${fastffi.revision}</version>
+        </dependency>
+    </dependencies>
 
+    <plugins>
+        <plugin>
+            <groupId>kr.motd.maven</groupId>
+            <artifactId>os-maven-plugin</artifactId>
+            <version>1.7.0</version>
+            <executions>
+                <execution>
+                    <phase>initialize</phase>
+                    <goals>
+                        <goal>detect</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
+    ```
+
+4. Use maven to build your applications.
+
+    The generated code, including Java and C++ code, is available in `<project.dir>/target/generated-source/annotations`
 
 ## Options
 
@@ -113,15 +136,15 @@ Usage:
 
 1. Install LLVM 11, Maven and CMake
 
-```
-brew install llvm@11 cmake maven
-```
+    ```
+    brew install llvm@11 cmake maven
+    ```
 
 2. Set ENV
 
-```
-export LLVM11_HOME=/usr/local/opt/llvm@11
-```
+    ```
+    export LLVM11_HOME=/usr/local/opt/llvm@11
+    ```
 
 ## FAQ
 
