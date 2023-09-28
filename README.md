@@ -368,7 +368,7 @@ In auto-generate Java code, method witch accept enum parameter will pass `enumOb
 
 By this way, value will be passed correctly.
 
-### Realated links
+### Related links
 
 - [Open-Source fastFFI: An Efficient Java Cross-Language Communication Frame - Alibaba Cloud Community](https://www.alibabacloud.com/blog/599128) ([中文翻译](https://zhuanlan.zhihu.com/p/558400175))
 - [GraphScope analytics in Java：打破大规模图计算的跨语言障碍 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/473591375)
