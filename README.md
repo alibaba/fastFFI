@@ -148,4 +148,228 @@ Usage:
 
 ## FAQ
 
-TBA
+### How to install llvm-11?
+
+In Ubuntu:
+
+```bash
+sudo apt-get install llvm-11 clang-11 lld-11 libclang-11-dev libz-dev -y
+```
+
+Or use this [script](https://github.com/alibaba/fastFFI/blob/main/docker/install-llvm11.sh) with `LLVM11_HOME=/usr/lib/llvm-11` and `LLVM_VAR=11.0.0` installing from source.
+
+### Why You need a CMakeLists?
+
+You need to write a CMakeLists.txt because the auto-generated C++ code depends on **JNI** library and other library you need.
+
+By collecting what C++ code depend, you can provide a JNI dynamic-link library, so that the auto-generated C++ code can only rely on the JNI dynamic-link library.
+
+### How to specify jni library though annotations?
+
+First of all, the basic way to link dynamic library is:
+
+```java
+try {
+      System.loadLibrary("lib-name");
+}
+```
+
+There are some higher level way to link dynamic library by wrapping the basic way.
+
+One way is use `@FFIGen(library = "lib-name")`
+
+For example, if the original C++ code belongs to a third-party library, and you have linked this library in your JNI library, so you need specify the library as your JNI library like `@FFIGen(library = "jni-lib")`.
+
+```java
+@FFIGen(library = "jni-lib")
+@FFITypeAlias("ns::Clz")
+@CXXHead("xxx.h")
+public interface Clz extends CXXPointer {}
+```
+
+An other way is using `@FFIApplication(jniLibrary = "lib-name")` create a `package-info.java` file in your package, telling needed library like:
+
+```java
+@FFIApplication(jniLibrary = "jni-lib")
+package com.alibaba.fastffi.demo.ffi;
+
+import com.alibaba.fastffi.FFIApplication;
+```
+
+So that you don't need to specify library for `@FFIGen` in the same package. [Sample](https://github.com/alibaba/fastFFI/blob/c8676127444943e31d6f378e5eb497f1a083eee4/samples/flatbuffers-demo/src/main/java/com/alibaba/fastffi/demo/ffi/package-info.java#L17)
+
+### How to map static functions?
+
+You may use `FFILibrary` designed for functions defined in a namespace. For any C function, it could be viewed as defined in the global empty namespace. Here is an example:
+
+```java
+@FFIGen
+@FFILibrary(value = "cmath", namespace = "")
+@CXXHead("math.h")
+public interface C {
+    double fabs(double v);
+    double pow(double x, double y);
+}
+```
+
+Field `value` in the `@FFILibrary` is simply a key used to register an instance of the `FFILibrary` in `FFITypeFactory`.
+
+To use the interface `C`, we need to obtain an instance of the `FFILibrary` via `FFITypeFactory`.
+
+```java
+import com.alibaba.fastffi.FFITypeFactory;
+
+public class Main {
+    public static void main(String[]args) {
+        C clib = FFITypeFactory.getLibrary(C.class);
+        double a = 1.234;
+        double b = 2.345;
+        double c = -3.456;
+        System.out.println(clib.fabs(a));
+        System.out.println(clib.fabs(b));
+        System.out.println(clib.fabs(c));
+        System.out.println(clib.pow(a, b));
+        System.out.println(Math.pow(a, b));
+    }
+}
+```
+
+### Why we reimplement stdcxx?
+
+For example, you need to use `std::map` which `fastffi.stdcxx` didn't provide. So you write StdMap like this:
+
+```java
+@FFIGen
+@CXXHead(
+        value = {"stdint.h"},
+        system = {"map"})
+@FFITypeAlias("std::map")
+@CXXTemplate(
+        cxx = {"std::string", "value_class"},
+        java = {"StdString", "ValueClass"})
+public interface StdMap<K, V> extends FFIPointer {
+
+    @CXXOperator("[]")
+    @CXXReference V get(@CXXReference K key);
+
+    @FFIFactory
+    interface Factory<K, V> {
+        StdMap<K, V> create();
+    }
+}
+```
+
+Unfortunately, you well meet error below:
+
+```
+stdcxx/StdMap.java:[28,8] java.lang.IllegalArgumentException: Cannot find type 'StdString' in the context of stdcxx.StdMap
+```
+
+To solve this, you must implement all stdcxx you need **manually**.
+
+Beside, template in C++ is not same as generic in Java, so you need use `@CXXTemplate` to specific needed class manually.
+
+### How to get and set member directly?
+
+For example, there is a public string member in C++ called `name` without set and get function.
+
+Use `@FFISetter` and `@FFIGetter` like this:
+
+```java
+@FFIGetter
+@FFINameAlias("name")
+@CXXValue
+StdString getName();
+
+@FFISetter
+@FFINameAlias("name")
+void setName(@CXXValue StdString name);
+```
+
+### How to get generic factory?
+
+Pass C++ full name to method `FFITypeFactory.getFactory` like [this](https://github.com/alibaba/fastFFI/blob/c8676127444943e31d6f378e5eb497f1a083eee4/samples/simdjson-demo/src/main/java/com/alibaba/llvm4jni/simdjson/stdcxx/StdVector.java#L42C77-L42C99):
+
+```java
+Factory<Long> LONG_FACTORY = FFITypeFactory.getFactory(StdVector.class, "std::vector<int64_t>");
+```
+
+### How to specify value of enum's menber?
+
+In common case(enum's value is from 0 to n), you only need to implement `getValue` method with `ordinal` method like this:
+
+```java
+@Override
+public int getValue() {
+    return ordinal();
+}
+```
+
+But for special C++ enum like this:
+
+```cpp
+enum class AdjListType : std::uint8_t {
+  /// collection of edges by source, but unordered, can represent COO format
+  unordered_by_source = 0b00000001,
+  /// collection of edges by destination, but unordered, can represent COO
+  /// format
+  unordered_by_dest = 0b00000010,
+  /// collection of edges by source, ordered by source, can represent CSR format
+  ordered_by_source = 0b00000100,
+  /// collection of edges by destination, ordered by destination, can represent
+  /// CSC format
+  ordered_by_dest = 0b00001000,
+};
+```
+
+It's obviously that enum's numbers are not continuous, so you need also pass value like this rather than from 0 to 3.
+
+Overriding `getValue` method is key of this problem, so you'd like write enum like this:
+
+```java
+@FFITypeAlias("GraphArchive::AdjListType")
+@FFITypeRefiner("com.alibaba.graphar.types.AdjListType.get")
+public enum AdjListType implements CXXEnum {
+  // collection of edges by source, but unordered, can represent COO format
+  unordered_by_source((byte)0b00000001),
+  // collection of edges by destination, but unordered, can represent COO
+  // format
+  unordered_by_dest((byte)0b00000010),
+  // collection of edges by source, ordered by source, can represent CSR format
+  ordered_by_source((byte)0b00000100),
+  // collection of edges by destination, ordered by destination, can represent
+  // CSC format
+  ordered_by_dest((byte)0b00001000);
+
+  private final byte binaryNum;
+
+  AdjListType(byte binaryNum) {
+    this.binaryNum = binaryNum;
+  }
+    
+  @Override
+  public int getValue() {
+    return binaryNum;
+  }
+}
+```
+
+In auto-generate Java code, method witch accept enum parameter will pass `enumObject.getvalue()` to native function like this:
+
+```java
+@FFINameAlias("AddAdjList")
+  @CXXValue
+  public Status addAdjList(@CXXValue AdjListType adjListType, @CXXValue FileType fileType) {
+    long ret$ = nativeAddAdjList0(address, com.alibaba.fastffi.CXXValueScope.allocate(com.alibaba.graphar.utils.Status_cxx_0x42f3f706.SIZE), 
+                                  adjListType.getValue(), fileType.getValue()); 
+      return (new com.alibaba.graphar.utils.Status_cxx_0x42f3f706(ret$));
+  }
+```
+
+By this way, value will be passed correctly.
+
+### Related links
+
+- [Open-Source fastFFI: An Efficient Java Cross-Language Communication Frame - Alibaba Cloud Community](https://www.alibabacloud.com/blog/599128) ([中文翻译](https://zhuanlan.zhihu.com/p/558400175))
+- [GraphScope analytics in Java：打破大规模图计算的跨语言障碍 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/473591375)
+- [GraphScope: 人人可用的一站式图计算](https://mp.weixin.qq.com/s/tq26cGVY_sP8wCjb2mx_FA)
